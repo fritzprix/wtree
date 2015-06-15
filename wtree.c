@@ -88,7 +88,7 @@ static wtreeNode_t* insert_r(wtreeNode_t* current,wtreeNode_t* item,uint32_t gap
 		if(current->base + current->span + gap == current->right->base){
 			// if two condecutive chunk is mergeable, then merge them
 			current->span += current->right->span + gap;
-			current->right = NULL;
+			current->right = current->right->right;
 			return current;
 		}
 			// if not mergeable, compare two consecutive size
@@ -101,7 +101,7 @@ static wtreeNode_t* insert_r(wtreeNode_t* current,wtreeNode_t* item,uint32_t gap
 			// if two condecutive chunk is mergeable, then merge them
 			current->base = current->left->base;
 			current->span += current->left->span + gap;
-			current->left = NULL;
+			current->left = current->left->left;
 			return current;
 		}
 		if(current->span < current->left->span){
@@ -114,9 +114,10 @@ static wtreeNode_t* insert_r(wtreeNode_t* current,wtreeNode_t* item,uint32_t gap
 static void print_r(wtreeNode_t* node,int depth){
 	if(node == NULL_NODE)
 		return;
-	print_r(node->left,depth + 1);
-	print_tab(depth);printf("{base : %d , span : %d} @ depth %d\n",node->base,node->span,depth);
 	print_r(node->right,depth + 1);
+	print_tab(depth);printf("{base : %d , span : %d} @ depth %d\n",node->base,node->span,depth);
+	print_r(node->left,depth + 1);
+
 }
 
 static void print_tab(int k){
@@ -145,6 +146,8 @@ static wtreeNode_t* rotateRight(wtreeNode_t* rot_pivot){
 static wtreeNode_t* swapDown_r(wtreeNode_t* current,wtreeNode_t* next){
 	if(next == NULL_NODE)
 		return current;
+	if((next->left == NULL_NODE) && (next->right == NULL_NODE))
+		return next;
 	wtreeNode_t *l,*r;
 	r = next->right;
 	l = next->left;
