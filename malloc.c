@@ -41,11 +41,13 @@ void wtreeHeap_init(void* addr,size_t sz){
 }
 
 void * wtreeHeap_malloc(size_t sz){
-	wtreeNode_t* chunk = wtreeRetrive(&cache_root,sz);
+	if(!sz)
+		return NULL;
+	wtreeNode_t* chunk = wtreeRetrive(&cache_root,&sz);
 	struct heapHeader *chdr,*nhdr,*nnhdr;
 	uint64_t tsz;
 	if(chunk == NULL){
-		if(heapPos + sz >= heapLimit)
+		if(heapPos + sz + sizeof(struct heapHeader) >= heapLimit)
 			return NULL; // impossible to handle
 		chdr = (struct heapHeader*) heapPos;
 		heapPos = (size_t) &chdr->wtree_node + sz;
@@ -54,22 +56,11 @@ void * wtreeHeap_malloc(size_t sz){
 		nhdr->psize = sz;
 		return &chdr->wtree_node;
 	}else{
-		chdr = container_of(chunk,struct heapHeader,wtree_node);
-		nnhdr = (struct heapHeader *) ((size_t) &chdr->wtree_node + chdr->size);
-		if(chdr->size != sz){
-			// update size
-			tsz = chdr->size;
-			chdr->size = sz;
-			nhdr = ((uint8_t*) chdr + chdr->size);
-			nhdr->size = tsz - chdr->size;
-			nnhdr->psize = nhdr->size;
-			nhdr->psize = chdr->size;
-			return &chdr->wtree_node;
-		}else {
-			if(nnhdr->psize != chdr->size)
-				error(-1,0,"Heap Corrupted\n");
-			return &chdr->wtree_node;
-		}
+		chdr = container_of(chunk,struct heapHeader,wtree_node);  //?
+		nnhdr = (struct heapHeader *) ((size_t) &chdr->wtree_node + sz);
+		chdr->size = sz;
+		nnhdr->psize = sz;
+		return &chdr->wtree_node;
 	}
 }
 

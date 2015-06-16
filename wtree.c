@@ -43,34 +43,34 @@ void wtreeInsert(wtreeRoot_t* root,wtreeNode_t* item){
 	root->entry = insert_r(root->entry,item,root->ext_gap);
 }
 
-wtreeNode_t* wtreeRetrive(wtreeRoot_t* root,uint64_t span){
+wtreeNode_t* wtreeRetrive(wtreeRoot_t* root,uint64_t* span){
 	if(!root || !root->entry)
 		return NULL;
-	if(root->entry->span < span)
+	uint64_t nspan = *span + root->ext_gap;
+	if(root->entry->span < *span)
 		return NULL;
 
-	uint64_t nspan;
 	wtreeNode_t* retrived = NULL;
-	if(root->entry->span >= (span + sizeof(wtreeNode_t))){
+	if(root->entry->span >= (nspan + sizeof(wtreeNode_t))){			//
 		// build up new chunk
 		retrived = root->entry;
-		nspan = retrived->span - span;
-		root->entry->span = span;
-		root->entry = (wtreeNode_t*)(((uint8_t*) root->entry) + span);
-		wtreeNodeInit(root->entry,root->entry,nspan);
+		root->entry = (wtreeNode_t*)(((uint8_t*) root->entry) + nspan);
+		nspan = retrived->span - nspan;
+		retrived->span = *span;
+		wtreeNodeInit(root->entry,(uint64_t)root->entry,nspan);
 		root->entry->left = retrived->left;
 		root->entry->right = retrived->right;
-	}else if(root->entry->span >= span){
+		root->entry = swapDown_r(root->entry,root->entry);
+	}else if(root->entry->span >= nspan){
 		retrived = root->entry;
+		*span = retrived->span;
+		root->entry = swapDown_r(NULL_NODE,root->entry);
+		if(root->entry == retrived)
+			root->entry = NULL_NODE;
+		null_node.left = null_node.right = NULL;
 	}else{
 		return NULL;
 	}
-	root->entry = swapDown_r(NULL_NODE,root->entry);
-	null_node.left = null_node.right = NULL;
-	if(root->entry == NULL_NODE)
-		return retrived;
-	if((root->entry->span >= root->entry->right->span) && root->entry->span >= root->entry->left->span)
-		return retrived;
 	return retrived;
 }
 
@@ -99,9 +99,9 @@ static wtreeNode_t* insert_r(wtreeNode_t* current,wtreeNode_t* item,uint32_t gap
 		current->left = insert_r(current->left,item,gap);
 		if(current->left->base + current->left->span + gap == current->base){
 			// if two condecutive chunk is mergeable, then merge them
-			current->base = current->left->base;
-			current->span += current->left->span + gap;
-			current->left = current->left->left;
+			current = rotateRight(current);
+			current->span += current->right->span + gap;
+			current->right = current->right->right;
 			return current;
 		}
 		if(current->span < current->left->span){
@@ -145,7 +145,7 @@ static wtreeNode_t* rotateRight(wtreeNode_t* rot_pivot){
  */
 static wtreeNode_t* swapDown_r(wtreeNode_t* current,wtreeNode_t* next){
 	if(next == NULL_NODE)
-		return current;
+		return next;
 	if((next->left == NULL_NODE) && (next->right == NULL_NODE))
 		return next;
 	wtreeNode_t *l,*r;

@@ -16,8 +16,8 @@ typedef int (*wtreeMerge)(wtreeNode_t* a,wtreeNode_t* b);
 
 struct wtreeNode {
 	wtreeNode_t *left,*right;
-	uint64_t base;
-	uint64_t span;
+	uint32_t base;
+	uint32_t span;
 };
 
 struct wtreeRoot {
@@ -28,7 +28,7 @@ struct wtreeRoot {
 extern void wtreeRootInit(wtreeRoot_t* root,uint32_t ext_gap);
 extern void wtreeNodeInit(wtreeNode_t* node,uint64_t base,uint64_t span);
 extern void wtreeInsert(wtreeRoot_t* root,wtreeNode_t* item);
-extern wtreeNode_t* wtreeRetrive(wtreeRoot_t* root,uint64_t span);
+extern wtreeNode_t* wtreeRetrive(wtreeRoot_t* root,uint64_t* span);
 
 extern void wtreePrint(wtreeRoot_t* root);
 
