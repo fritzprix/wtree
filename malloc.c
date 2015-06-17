@@ -76,6 +76,11 @@ void wtreeHeap_free(void* ptr){
 	wtreeInsert(&cache_root,&chdr->wtree_node);
 }
 
+size_t wtreeHeap_size(){
+	return wtreeTotalSpan(&cache_root);
+}
+
+
 void wtreeHeap_print(){
 	printf("======================================================================================================\n");
 	wtreePrint(&cache_root);

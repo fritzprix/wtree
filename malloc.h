@@ -13,6 +13,7 @@
 extern void wtreeHeap_init(void* addr,size_t size);
 extern void * wtreeHeap_malloc(size_t sz);
 extern void wtreeHeap_free(void* ptr);
+extern size_t wtreeHeap_size();
 extern void wtreeHeap_print();
 
 

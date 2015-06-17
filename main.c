@@ -19,11 +19,12 @@ int main(void){
 	rb_treeNode_t* buffer;
 	root = NULL;
 	size_t sz = 0;
-	size_t tsz = 1;
+	size_t totalAllocSz = 0;
+	size_t totalFreeSz = 0;
 	int test_cnt = 1;
 	while(test_cnt--){
 		printf("Test count : %d\n",test_cnt);
-		tsz = 0;
+		totalAllocSz = 0;
 		int alloccnt = 100;
 		while (alloccnt--) {
 			printf("Alloc Count : %d\n",alloccnt);
@@ -32,7 +33,7 @@ int main(void){
 			if (buffer) {
 				printf("allocated : addr -> %d , size -> %d\n ", buffer, sz);
 				wtreeHeap_print();
-				tsz += sz;
+				totalAllocSz += sz;
 				cdsl_rbtreeNodeInit(buffer, sz);
 				cdsl_rbtreeInsert(&root, buffer);
 			}else {
@@ -40,11 +41,16 @@ int main(void){
 				printf("Alloc Failed /w size of %d\n",sz);
 				wtreeHeap_print();
 				buffer = cdsl_rbtreeDeleteMax(&root);
-				printf("Freed Chunk : addr -> %d, size -> %d\n",buffer, buffer->key);
-				wtreeHeap_free(buffer);
+				if (buffer) {
+					printf("Freed Chunk : addr -> %d, size -> %d\n", buffer, buffer->key);
+					totalFreeSz += buffer->key;
+					wtreeHeap_free(buffer);
+				}
 				wtreeHeap_print();
 			}
 		}
+		printf("Total Allocated Size : %d, Total Freed Size : %d\n",totalAllocSz,totalFreeSz);
+		printf("Total Size in Heap : %d\n",wtreeHeap_size());
 		cdsl_rbtreePrint(&root);
 		buffer = cdsl_rbtreeDeleteMax(&root);
 		if(buffer){
