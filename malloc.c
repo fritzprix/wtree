@@ -6,13 +6,8 @@
  */
 
 #include "wtree.h"
+#include "malloc.h"
 #include <stddef.h>
-
-static uint8_t* heapMem;
-static uint8_t* heapPos;
-static uint8_t* heapLimit;
-static size_t heapSize;
-static wtreeRoot_t cache_root;
 
 
 #ifndef container_of
@@ -32,26 +27,25 @@ struct heapHeader {
 	wtreeNode_t wtree_node;		///			free cache header 	///
 };
 
-void wtreeHeap_init(void* addr,size_t sz){
-	heapMem = (uint8_t*) addr;
-	heapPos = heapMem;
-	heapLimit = heapMem + sz;
-	heapSize = sz;
-	wtreeRootInit(&cache_root,sizeof(struct exter_header));
+void wtreeHeap_init(wt_alloc_t* alloc,void* addr,size_t sz){
+	alloc->heap_base = alloc->heap_pos = (uint8_t*) addr;
+	alloc->heap_limit = (size_t) addr + sz;
+	alloc->heap_size = sz;
+	wtreeRootInit(&alloc->cache_root,sizeof(struct exter_header));
 }
 
-void * wtreeHeap_malloc(size_t sz){
+void * wtreeHeap_malloc(wt_alloc_t* alloc,size_t sz){
 	if(!sz)
 		return NULL;
-	wtreeNode_t* chunk = wtreeRetrive(&cache_root,&sz);
+	wtreeNode_t* chunk = wtreeRetrive(&alloc->cache_root,&sz);
 	struct heapHeader *chdr,*nhdr,*nnhdr;
 	uint64_t tsz;
 	if(chunk == NULL){
-		if(heapPos + sz + sizeof(struct heapHeader) >= heapLimit)
+		if(alloc->heap_pos + sz + sizeof(struct heapHeader) >= alloc->heap_limit)
 			return NULL; // impossible to handle
-		chdr = (struct heapHeader*) heapPos;
-		heapPos = (size_t) &chdr->wtree_node + sz;
-		nhdr = (struct heapHeader*) heapPos;
+		chdr = (struct heapHeader*) alloc->heap_pos;
+		alloc->heap_pos = (size_t) &chdr->wtree_node + sz;
+		nhdr = (struct heapHeader*) alloc->heap_pos;
 		chdr->size = sz;
 		nhdr->psize = sz;
 		return &chdr->wtree_node;
@@ -64,7 +58,7 @@ void * wtreeHeap_malloc(size_t sz){
 	}
 }
 
-void wtreeHeap_free(void* ptr){
+void wtreeHeap_free(wt_alloc_t* alloc,void* ptr){
 	if(!ptr)
 		return;
 	struct heapHeader* chdr,*nhdr;
@@ -73,17 +67,17 @@ void wtreeHeap_free(void* ptr){
 	if(chdr->size != nhdr->psize)
 		error(-1,0,"Heap Corrupted\n");
 	wtreeNodeInit(&chdr->wtree_node,&chdr->wtree_node,chdr->size);
-	wtreeInsert(&cache_root,&chdr->wtree_node);
+	wtreeInsert(&alloc->cache_root,&chdr->wtree_node);
 }
 
-size_t wtreeHeap_size(){
-	return wtreeTotalSpan(&cache_root);
+size_t wtreeHeap_size(wt_alloc_t* alloc){
+	return wtreeTotalSpan(&alloc->cache_root);
 }
 
 
-void wtreeHeap_print(){
+void wtreeHeap_print(wt_alloc_t* alloc){
 	printf("======================================================================================================\n");
-	wtreePrint(&cache_root);
+	wtreePrint(&alloc->cache_root);
 	printf("======================================================================================================\n");
 }
 
