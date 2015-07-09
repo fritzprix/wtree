@@ -11,11 +11,22 @@
 #include <stdio.h>
 #include "cdsl_rbtree.h"
 
-static uint8_t heap[1 << 16];
+static uint8_t heap1[1 << 16];
+static uint8_t heap2[1 << 16];
 static rb_treeNode_t* root;
-static wt_alloc_t alloc;
+static wt_alloc_t alloc1;
+static wt_alloc_t alloc2;
+static wt_heaproot_t heap_root;
+
 int main(void){
-	wtreeHeap_init(&alloc,heap,sizeof(heap));
+
+	wtreeHeap_initCacheRoot(&heap_root);
+	wtreeHeap_initCacheNode(&alloc1,heap1,sizeof(heap1));
+	wtreeHeap_initCacheNode(&alloc2,heap2,sizeof(heap2));
+
+	wtreeHeap_addCache(&heap_root,&alloc1);
+	wtreeHeap_addCache(&heap_root,&alloc2);
+
 	rb_treeNode_t* buffer;
 	root = NULL;
 	size_t sz = 0;
@@ -29,8 +40,8 @@ int main(void){
 		int alloccnt = 500;
 		while (alloccnt--) {
 //			printf("Alloc Count : %d\n",alloccnt);
-			sz = rand() % (sizeof(heap) >> 6) + sizeof(rb_treeNode_t);
-			buffer = wtreeHeap_malloc(&alloc,sz);
+			sz = rand() % (sizeof(heap1) >> 6) + sizeof(rb_treeNode_t);
+			buffer = wtreeHeap_malloc(&heap_root,sz);
 			if (buffer) {
 //				printf("allocated : addr -> %d , size -> %d\n ", buffer, sz);
 //				wtreeHeap_print();
@@ -44,7 +55,7 @@ int main(void){
 				if (buffer) {
 //					printf("Freed Chunk : addr -> %d, size -> %d\n", buffer, buffer->key);
 					totalFreeSz += buffer->key;
-					wtreeHeap_free(&alloc,buffer);
+					wtreeHeap_free(&heap_root,buffer);
 				}
 	//			wtreeHeap_print(&alloc);
 			}
@@ -56,7 +67,7 @@ int main(void){
 		if(buffer){
 			do {
 //				printf("chunk addr %d, chunk size : %d\n", (uint32_t) buffer,buffer->key);
-				wtreeHeap_free(&alloc,buffer);
+				wtreeHeap_free(&heap_root,buffer);
 //				wtreeHeap_print();
 				buffer = cdsl_rbtreeDeleteMax(&root);
 			} while (buffer);
