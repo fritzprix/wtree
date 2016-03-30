@@ -1,0 +1,10 @@
+{
+	"name":"yamlloc",
+	"include":["./include","./"],
+	"output":["libym.a","libym.so"],
+	"version":"0.1",
+	"buildcmd":[
+		"make config",
+		"make release"
+	]
+}

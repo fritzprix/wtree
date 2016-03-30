@@ -1,5 +1,5 @@
 /*
- * malloc.h
+ * wtalloc.h
  *
  *  Created on: Jun 13, 2015
  *      Author: innocentevil
@@ -33,7 +33,8 @@ extern void wtreeHeap_initCacheRoot(wt_heaproot_t* root);
 extern void wtreeHeap_initCacheNode(wt_alloc_t* aloc,void* addr,size_t size);
 extern void wtreeHeap_addCache(wt_heaproot_t* heap,wt_alloc_t* cache);
 extern void* wtreeHeap_malloc(wt_heaproot_t* heap,size_t sz);
-extern void wtreeHeap_free(wt_heaproot_t* heap,void* ptr);
+extern void wtreeHeap_free(wt_heaproot_t* heap,void* ptr,wt_alloc_t** purgeable);
+extern void wtreeHeap_freeRoot(wt_heaproot_t* root);
 extern size_t wtreeHeap_size(wt_heaproot_t* heap);
 extern void wtreeHeap_print(wt_heaproot_t* heap);
 

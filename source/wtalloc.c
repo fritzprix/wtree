@@ -1,14 +1,15 @@
 /*
- * malloc.c
+ * wtalloc.c
  *
  *  Created on: Jun 13, 2015
  *      Author: innocentevil
  */
 
 #include "wtree.h"
-#include "malloc.h"
+#include "wtalloc.h"
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 #ifndef container_of
@@ -41,9 +42,15 @@ static void cache_print(wt_alloc_t* alloc);
 static wt_alloc_t* rotateLeft(wt_alloc_t* rot_pivot);
 static wt_alloc_t* rotateRight(wt_alloc_t* rot_pivot);
 static wt_alloc_t* add_cache_r(wt_alloc_t* current,wt_alloc_t* nu);
-static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr);
+static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr,wt_alloc_t** purgeable);
 static void print_tab(int k);
 static void print_r(wt_alloc_t* current,int k);
+
+/*
+ *     p
+ *    / \
+ *   n0 n1
+ */
 
 
 /*
@@ -80,11 +87,12 @@ void wtreeHeap_initCacheNode(wt_alloc_t* alloc,void* addr,size_t sz){
 
 
 void wtreeHeap_addCache(wt_heaproot_t* heap,wt_alloc_t* cache){
-	if(!heap || !cache_free)
+	if(!heap || !cache)
 		return;
 	heap->cache = add_cache_r(heap->cache,cache);
 	heap->size += cache->size;
 }
+
 
 void* wtreeHeap_malloc(wt_heaproot_t* heap,size_t sz){
 	if(!heap || !sz)
@@ -100,14 +108,19 @@ void* wtreeHeap_malloc(wt_heaproot_t* heap,size_t sz){
 	return chunk_ptr;
 }
 
-void wtreeHeap_free(wt_heaproot_t* heap,void* ptr){
+void wtreeHeap_free(wt_heaproot_t* heap,void* ptr,wt_alloc_t** purgeable){
 	if(!heap || !ptr)
 		return;
 	if(heap->cache == NULL_CACHE)
 		exit(-1);
 
-	heap->cache = free_cache_r(heap->cache,ptr);
+	heap->cache = free_cache_r(heap->cache,ptr,purgeable);
+	if(purgeable == NULL_CACHE)
+	{
+		purgeable = NULL;
+	}
 }
+
 
 size_t wtreeHeap_size(wt_heaproot_t* heap){
 	if(!heap)
@@ -138,18 +151,23 @@ static wt_alloc_t* add_cache_r(wt_alloc_t* current,wt_alloc_t* nu){
 }
 
 
+
 /**
  *
  */
-static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr){
+static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr, wt_alloc_t** purgeable){
+	if(!purgeable)
+	{
+		return current;
+	}
 	if(current->base > ptr){
-		current->left = free_cache_r(current->left,ptr);
+		current->left = free_cache_r(current->left,ptr,purgeable);
 		if(current->left->size > current->size)
 			return rotateRight(current);
 	}else if((current->right->base > ptr) || (current->right == NULL_CACHE)){
-		cache_free(current,ptr);
+		*purgeable = cache_free(current,ptr,purgeable);
 	}else {
-		current->right = free_cache_r(current->right,ptr);
+		current->right = free_cache_r(current->right,ptr,purgeable);
 		if(current->right->size > current->size)
 			return rotateLeft(current);
 	}
@@ -165,7 +183,7 @@ static void print_r(wt_alloc_t* current,int k){
 	if(current == NULL_CACHE)
 		return;
 	print_r(current->left,k + 1);
-	print_tab(k);printf("{cache : base %d , size %d @ %d}\n",current->base,current->size,k);
+	print_tab(k);printf("{cache : base %d , size %ld @ %d}\n",(int)current->base,current->size,k);
 	print_r(current->right,k + 1);
 }
 
@@ -201,7 +219,7 @@ static void * cache_malloc(wt_alloc_t* alloc,size_t sz){
 		chdr->size = sz;
 		nhdr->psize = sz;
 	}else{
-		chdr = (wtreeNode_t*) container_of(chunk,struct heapHeader,wtree_node);  //?
+		chdr = (struct heapHeader *) container_of(chunk,struct heapHeader,wtree_node);  //?
 		nnhdr = (struct heapHeader *) ((size_t) &chdr->wtree_node + sz);
 		chdr->size = sz;
 		nnhdr->psize = sz;
@@ -210,17 +228,25 @@ static void * cache_malloc(wt_alloc_t* alloc,size_t sz){
 	return &chdr->wtree_node;
 }
 
-static void cache_free(wt_alloc_t* alloc,void* ptr){
+static wt_alloc_t* cache_free(wt_alloc_t* alloc,void* ptr){
 	if(!ptr)
-		return;
+		return NULL_CACHE;
 	struct heapHeader* chdr,*nhdr;
 	chdr = (struct heapHeader*) container_of(ptr,struct heapHeader,wtree_node);
 	nhdr = (struct heapHeader*) ((size_t)ptr + chdr->size);
 	if(chdr->size != nhdr->psize)
-		error(-1,0,"Heap Corrupted\n");
+	{
+		fprintf(stderr,"Heap Corrupted\n");
+		exit(1);
+	}
 	wtreeNodeInit(&chdr->wtree_node,(uint64_t)&chdr->wtree_node,chdr->size);
 	wtreeInsert(&alloc->entry,&chdr->wtree_node);
 	alloc->size += chdr->size;
+	if(alloc->size == ((size_t)alloc->limit - alloc->base))
+	{
+		return alloc;
+	}
+	return NULL_CACHE;
 }
 
 static size_t cache_size(wt_alloc_t* alloc){

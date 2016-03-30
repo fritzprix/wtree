@@ -9,6 +9,7 @@
 #include "wtree.h"
 #include "malloc.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "cdsl_rbtree.h"
 
 static uint8_t heap1[1 << 16];

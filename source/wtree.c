@@ -6,6 +6,7 @@
  */
 #include "wtree.h"
 #include <stddef.h>
+#include <stdio.h>
 
 
 static wtreeNode_t null_node = {

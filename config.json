@@ -1,0 +1,10 @@
+{
+	"YM_CONFIG":{
+		"type":"config",
+		"path":"./source/config.json"
+	},
+	"DEP_CONFIG":{
+		"type":"config",
+		"path":"./depend/config.json"
+	}
+}
