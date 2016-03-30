@@ -35,14 +35,15 @@ struct heapHeader {
 
 
 static void * cache_malloc(wt_alloc_t* alloc,size_t sz);
-static void cache_free(wt_alloc_t* alloc,void* ptr);
+static wt_alloc_t* cache_free(wt_alloc_t* alloc,void* ptr);
 static size_t cache_size(wt_alloc_t* alloc);
 static void cache_print(wt_alloc_t* alloc);
 
 static wt_alloc_t* rotateLeft(wt_alloc_t* rot_pivot);
 static wt_alloc_t* rotateRight(wt_alloc_t* rot_pivot);
 static wt_alloc_t* add_cache_r(wt_alloc_t* current,wt_alloc_t* nu);
-static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr,wt_alloc_t** purgeable);
+static wt_alloc_t* free_cache_r(wt_alloc_t* current,BOOL* freed);
+static wt_alloc_t* free_r(wt_alloc_t* current,void* ptr,wt_alloc_t** purgeable);
 static void print_tab(int k);
 static void print_r(wt_alloc_t* current,int k);
 
@@ -62,8 +63,7 @@ static void print_r(wt_alloc_t* current,int k);
 	wtreeRoot_t	entry;
  */
 static wt_alloc_t null_node = {
-		.left = NULL,
-		.right = NULL,
+		.__node = {0,0},
 		.pos = NULL,
 		.limit = NULL,
 		.size = 0,
@@ -93,6 +93,12 @@ void wtreeHeap_addCache(wt_heaproot_t* heap,wt_alloc_t* cache){
 	heap->size += cache->size;
 }
 
+BOOL wtreeHeap_removeCache(wt_heaproot_t* heap, wt_alloc_t* cache){
+	if(!heap || !cache)
+		return FALSE;
+
+	return TRUE;
+}
 
 void* wtreeHeap_malloc(wt_heaproot_t* heap,size_t sz){
 	if(!heap || !sz)
@@ -113,11 +119,14 @@ void wtreeHeap_free(wt_heaproot_t* heap,void* ptr,wt_alloc_t** purgeable){
 		return;
 	if(heap->cache == NULL_CACHE)
 		exit(-1);
+	wt_alloc_t* _purge = NULL;
+	if(!purgeable)
+		purgeable = &_purge;
 
-	heap->cache = free_cache_r(heap->cache,ptr,purgeable);
-	if(purgeable == NULL_CACHE)
+	heap->cache = free_r(heap->cache,ptr,purgeable);
+	if(*purgeable == NULL_CACHE)
 	{
-		purgeable = NULL;
+		*purgeable = NULL;
 	}
 }
 
@@ -150,24 +159,28 @@ static wt_alloc_t* add_cache_r(wt_alloc_t* current,wt_alloc_t* nu){
 	return current;
 }
 
+static wt_alloc_t* free_cache_r(wt_alloc_t* current,BOOL* freed){
+	return NULL;
+}
+
 
 
 /**
  *
  */
-static wt_alloc_t* free_cache_r(wt_alloc_t* current,void* ptr, wt_alloc_t** purgeable){
+static wt_alloc_t* free_r(wt_alloc_t* current,void* ptr, wt_alloc_t** purgeable){
 	if(!purgeable)
 	{
 		return current;
 	}
 	if(current->base > ptr){
-		current->left = free_cache_r(current->left,ptr,purgeable);
+		current->left = free_r(current->left,ptr,purgeable);
 		if(current->left->size > current->size)
 			return rotateRight(current);
 	}else if((current->right->base > ptr) || (current->right == NULL_CACHE)){
-		*purgeable = cache_free(current,ptr,purgeable);
+		*purgeable = (wt_alloc_t*) cache_free(current,ptr);
 	}else {
-		current->right = free_cache_r(current->right,ptr,purgeable);
+		current->right = free_r(current->right,ptr,purgeable);
 		if(current->right->size > current->size)
 			return rotateLeft(current);
 	}
@@ -242,7 +255,7 @@ static wt_alloc_t* cache_free(wt_alloc_t* alloc,void* ptr){
 	wtreeNodeInit(&chdr->wtree_node,(uint64_t)&chdr->wtree_node,chdr->size);
 	wtreeInsert(&alloc->entry,&chdr->wtree_node);
 	alloc->size += chdr->size;
-	if(alloc->size == ((size_t)alloc->limit - alloc->base))
+	if(alloc->size == ((size_t)alloc->limit - (size_t) alloc->base))
 	{
 		return alloc;
 	}
