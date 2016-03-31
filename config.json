@@ -1,4 +1,8 @@
 {
+	"ROOT_RECIPE":{
+		"type":"recipe",
+		"path":"./recipe.mk"
+	},
 	"YM_CONFIG":{
 		"type":"config",
 		"path":"./source/config.json"
@@ -6,5 +10,28 @@
 	"DEP_CONFIG":{
 		"type":"config",
 		"path":"./depend/config.json"
+	},
+	"CONFIG_TRUE" : {
+		"type":"bool",
+		"default":"y",
+		"force":"y",
+		"gen-list":{
+			"___YMALLOC_CONFIG":"to_int(this)"
+		}
+	},
+	"PAGE_SIZE" : {
+		"type":"int",
+		"default": 4096,
+		"gen-list":{
+			"PAGE_SIZE":"this"
+		}
+	},
+	"HEAP_PURGE_THRESHOLD": {
+		"type":"string",
+		"default": "0x4000000",
+		"gen-list":{
+			"PURGE_THRESHOLD":"to_int(this)"
+		}
 	}
+	
 }

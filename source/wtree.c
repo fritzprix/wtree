@@ -10,8 +10,7 @@
 
 
 static wtreeNode_t null_node = {
-	.left = NULL,
-	.right = NULL,
+	.__node = {0,0},
 	.base = 0,
 	.span = 0
 };
