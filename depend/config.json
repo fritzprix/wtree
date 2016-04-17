@@ -2,7 +2,8 @@
 	"DEP_CDSL":{
 	   "type" : "repo",
 	   "name" : "cdsl",
-	   "url" : "https://github.com/fritzprix/cdsl.git",
+	   "pkg":"package_x86_64.json",
+	   "url" : "https://github.com/MediaPipe/cdsl.git",
 	   "out" : "./dep/"
 	},
 	"DEP_AUTORECIPE":{
