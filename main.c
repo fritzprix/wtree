@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "cdsl_nrbtree.h"
+#include "nwtree.h"
 
 #define TEST_CNT    1000
 #define TH_CNT      1
@@ -33,23 +34,29 @@ static void* ymalloc_test(void* );
 static pthread_t thrs[TH_CNT];
 
 static int test_malloc_perf();
-static int test_wtree();
 
+
+static nwtreeNode_t nodes[20];
 
 int main(void){
 
-
-
+	int i;
+	nwtreeRoot_t root;
+	uint32_t base = 0;
+	uint32_t sz = 0;
+	nwtree_rootInit(&root);
+	for(i = 0;i < 20;i++)
+	{
+		sz = (rand() % 4096) + 512;
+		nwtree_nodeInit(&nodes[i],base,sz);
+		base += sz;
+		nwtree_addNode(&root, &nodes[i]);
+	}
+	nwtree_print(&root);
 //	test_malloc_perf();
 	return 0;
 }
 
-static wtreeNode_t nodes[TEST_CNT];
-static void* chnks[TEST_CNT];
-static int test_wtree()
-{
-
-}
 
 
 static int test_malloc_perf()
@@ -86,6 +93,7 @@ static int test_malloc_perf()
 	}
 	printf("AV yMALLOC Time : %f\n",av_alloc_time);
 	printf("AV yFREE Time : %f\n",av_free_time);
+	return 0;
 }
 
 
