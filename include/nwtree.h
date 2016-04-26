@@ -11,20 +11,32 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "cdsl_slist.h"
+
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
+
+struct nwtree_freehdr {
+	uint32_t      prev_sz;
+	slistNode_t   free_node;
+	uint32_t      chnk_sz;
+};
+
+struct nwtree_alchdr {
+	uint32_t      chnk_sz;
+};
 
 /*
  * _________________________________________________
  * | left | right | base | size | memory (bytes of size)  ...
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * | prev sz | left / right |  base | size
  *
  */
 struct nwtree_node {
 	nwtreeNode_t *left, *right;
 	uaddr_t       base;
 	uint32_t      size;
-	uint32_t      free_sz;
 };
 
 typedef struct  {

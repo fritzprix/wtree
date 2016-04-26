@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/mman.h>
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
@@ -44,15 +45,17 @@ int main(void){
 	nwtreeRoot_t root;
 	uint32_t base = 0;
 	uint32_t sz = 0;
+	void* chk = NULL;
 	nwtree_rootInit(&root);
 	for(i = 0;i < 20;i++)
 	{
-		sz = (rand() % 4096) + 512;
-		nwtree_nodeInit(&nodes[i],base,sz);
-		base += sz;
+		sz = ((rand() % 4096) + 512) & ~(0x1FF);
+		chk = mmap(NULL, sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+		printf("Size : %d @ %lu\n" , sz, (uint64_t) chk);
+		nwtree_nodeInit(&nodes[i],chk,sz);
 		nwtree_addNode(&root, &nodes[i]);
+		nwtree_print(&root);
 	}
-	nwtree_print(&root);
 //	test_malloc_perf();
 	return 0;
 }
