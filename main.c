@@ -47,13 +47,31 @@ int main(void){
 	uint32_t sz = 0;
 	void* chk = NULL;
 	nwtree_rootInit(&root);
+	size_t tsz = 0;
 	for(i = 0;i < 20;i++)
 	{
 		sz = ((rand() % 4096) + 512) & ~(0x1FF);
 		chk = mmap(NULL, sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		printf("Size : %d @ %lu\n" , sz, (uint64_t) chk);
-		nwtree_nodeInit(&nodes[i],chk,sz);
+		nwtree_baseNodeInit(&nodes[i],chk,sz);
 		nwtree_addNode(&root, &nodes[i]);
+		tsz = nwtree_totalSize(&root);
+		printf("Total Size : %u\n",tsz);
+	}
+	nwtreeNode_t* node;
+	for(i = 0;i < 20;i++)
+	{
+		sz = ((rand() % 2048) + 512);
+		chk = nwtree_reclaim_chunk(&root, sz);
+		node = (nwtreeNode_t*) chk;
+		if(!chk)
+		{
+			printf("fail to alloc\n");
+		}
+		tsz = nwtree_totalSize(&root);
+		printf("Total Size : %u\n",tsz);
+		nwtree_nodeInit(node, chk, sz);
+		nwtree_addNode(&root, node);
 		nwtree_print(&root);
 	}
 //	test_malloc_perf();

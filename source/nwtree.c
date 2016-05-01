@@ -17,6 +17,7 @@
 
 
 static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
+static uint32_t size_rc(nwtreeNode_t* node);
 static nwtreeNode_t* rotate_left(nwtreeNode_t* parent);
 static nwtreeNode_t* rotate_right(nwtreeNode_t* parent);
 static nwtreeNode_t* resolve_left(nwtreeNode_t* parent);
@@ -50,6 +51,34 @@ void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz)
 	node->size = sz;
 }
 
+void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz)
+{
+	if(!node)
+		return;
+	node->left = node->right = NULL;
+	node->base = addr;
+	node->base_size = node->size = sz;
+}
+
+void nwtree_purgeAll(nwtreeRoot_t* root)
+{
+
+}
+
+void nwtree_purge(nwtreeRoot_t* root)
+{
+
+}
+
+size_t nwtree_totalSize(nwtreeRoot_t* root)
+{
+	if(!root)
+		return 0;
+	return size_rc(root->entry);
+}
+
+
+
 void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node)
 {
 	if(!root)
@@ -59,24 +88,25 @@ void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node)
 
 void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz)
 {
-
-}
-
-int nwtree_free_chunk(nwtreeRoot_t* root, void* chnk)
-{
-
-}
-
-nwtreeNode_t* nwtree_delete(nwtreeRoot_t* root)
-{
-
+	if(!root)
+		return NULL;
+	nwtreeNode_t* largest = root->entry;
+	uint8_t* chunk = (uint8_t*) largest->base;
+	if((largest->size - sizeof(nwtreeNode_t)) < sz)
+		return NULL;
+	largest->size -= sz;
+	chunk = &chunk[largest->size];
+	root->entry = resolve(root->entry);
+	return chunk;
 }
 
 void nwtree_print(nwtreeRoot_t* root)
 {
 	if(!root)
 		return;
+	printf("\n");
 	print_rc(root->entry,0);
+	printf("\n");
 }
 
 static void print_tab(int times)
@@ -89,10 +119,10 @@ static void print_rc(nwtreeNode_t* parent,int depth)
 {
 	if(!parent)
 		return;
-	print_rc(parent->left,depth + 1);
-	print_tab(depth);
-	printf("Node@%lu {size : %u}\n",(uint64_t)parent->base, parent->size);
 	print_rc(parent->right, depth + 1);
+	print_tab(depth);
+	printf("Node@%lu {size : %u / base_size : %u }\n",(uint64_t)parent->base, parent->size, parent->base_size);
+	print_rc(parent->left,depth + 1);
 }
 
 
@@ -188,6 +218,8 @@ static nwtreeNode_t* merge_left(nwtreeNode_t* merger)
 	if((merger->left->base + merger->left->size) == merger->base)
 	{
 		merger->size += merger->left->size;
+		if(merger->left->base_size)
+			merger->base_size += merger->left->base_size;
 		merger->base = merger->left->base;
 		merger->left->size = 0;
 		merger->left = resolve(merger->left);
@@ -212,6 +244,8 @@ static nwtreeNode_t* merge_right(nwtreeNode_t* merger)
 	if((merger->base + merger->size) == merger->right->base)
 	{
 		merger->size += merger->right->size;
+		if(merger->right->base_size)
+			merger->base_size += merger->right->base_size;
 		merger->right->size = 0;
 		merger->right = resolve(merger->right);
 	}
@@ -233,5 +267,16 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 		parent->left = insert_rc(parent->left,item);
 		return resolve(merge_left(parent));
 	}
+}
+
+static uint32_t size_rc(nwtreeNode_t* node)
+{
+	if(!node)
+		return 0;
+
+	uint32_t sz = size_rc(node->left);
+	sz += node->base_size;
+	sz += size_rc(node->right);
+	return sz;
 }
 

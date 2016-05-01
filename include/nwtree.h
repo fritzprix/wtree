@@ -16,27 +16,12 @@
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
 
-struct nwtree_freehdr {
-	uint32_t      prev_sz;
-	slistNode_t   free_node;
-	uint32_t      chnk_sz;
-};
 
-struct nwtree_alchdr {
-	uint32_t      chnk_sz;
-};
-
-/*
- * _________________________________________________
- * | left | right | base | size | memory (bytes of size)  ...
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * | prev sz | left / right |  base | size
- *
- */
 struct nwtree_node {
 	nwtreeNode_t *left, *right;
 	uaddr_t       base;
 	uint32_t      size;
+	uint32_t      base_size;
 };
 
 typedef struct  {
@@ -45,14 +30,33 @@ typedef struct  {
 	size_t        used_sz;
 }nwtreeRoot_t;
 
+/*          |   @ address   128  |
+ *          | p @ base_size 1024 |
+ *          |   @ size      512  |
+ *          ----------------------
+ *         /                      \
+ *  |    @ address   0   |     |    @ address   1152  |
+ *  |  l @ base_size 0   |     |  r @ base_size 512   |
+ *  |    @ size      128 |     |    @ size      256   |
+ *
+ *  base node keeps information of original allocated segment size  ( base_size != 0 )
+ *  normal node doesn't have information of segment   ( base_size = 0 )
+ *  if cache should be purged due to any thread termination
+ *
+ *
+ */
+
+
 
 extern void nwtree_rootInit(nwtreeRoot_t* root);
 extern void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
+extern void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
+extern void nwtree_purgeAll(nwtreeRoot_t* root);
+extern void nwtree_purge(nwtreeRoot_t* root);
 extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node);
 extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz);
-extern int nwtree_free_chunk(nwtreeRoot_t* root, void* chnk);
-extern nwtreeNode_t* nwtree_delete(nwtreeRoot_t* root);
 extern void nwtree_print(nwtreeRoot_t* root);
+extern size_t nwtree_totalSize(nwtreeRoot_t* root);
 
 
 
