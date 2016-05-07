@@ -36,8 +36,8 @@ static pthread_t thrs[TH_CNT];
 
 static int test_malloc_perf();
 
-
 static nwtreeNode_t nodes[20];
+static DECLARE_PURGE_CALLBACK(onpurge);
 
 int main(void){
 
@@ -47,7 +47,7 @@ int main(void){
 	uint32_t sz = 0;
 	void* chk = NULL;
 	nwtree_rootInit(&root);
-	size_t tsz = 0;
+	size_t fsz,tsz = 0;
 	for(i = 0;i < 20;i++)
 	{
 		sz = ((rand() % 4096) + 512) & ~(0x1FF);
@@ -63,18 +63,24 @@ int main(void){
 	{
 		sz = ((rand() % 2048) + 512);
 		chk = nwtree_reclaim_chunk(&root, sz);
+		printf("Reclaimed chunk size : %u\n", sz);
 		node = (nwtreeNode_t*) chk;
 		if(!chk)
 		{
 			printf("fail to alloc\n");
 		}
 		tsz = nwtree_totalSize(&root);
-		printf("Total Size : %u\n",tsz);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
 		nwtree_nodeInit(node, chk, sz);
 		nwtree_addNode(&root, node);
+		fsz = nwtree_freeSize(&root);
+		printf("Free size : %u\n",fsz);
 		nwtree_print(&root);
 	}
 //	test_malloc_perf();
+	nwtree_purge(&root, onpurge);
+	nwtree_print(&root);
 	return 0;
 }
 
@@ -210,3 +216,8 @@ static void* ymalloc_test(void* arg)
 	return (void*) report;
 }
 
+static DECLARE_PURGE_CALLBACK(onpurge)
+{
+	munmap(node->base,node->base_size);
+	return TRUE;
+}
