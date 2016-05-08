@@ -14,11 +14,6 @@
 #include <stdio.h>
 #include "cdsl_slist.h"
 
-typedef struct {
-	nwtreeNode_t    node;
-	slistNode_t     purge_qn;
-} __attribute__((packed)) purged_node;
-
 static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
 static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback,BOOL force);
 static size_t size_rc(nwtreeNode_t* node);
@@ -356,7 +351,7 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL fo
 			return NULL;
 		}
 	}
-	if(node->size == node->base_size)
+	if((node->size == node->base_size) || force)
 	{
 		if(node->left && (node->left->base_size != node->left->size))
 		{
