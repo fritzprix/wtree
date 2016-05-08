@@ -106,6 +106,8 @@ void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz)
 {
 	if(!root)
 		return NULL;
+	if(!root->entry)
+		return NULL;
 	nwtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->base;
 	if((largest->size - sizeof(nwtreeNode_t)) < sz)
@@ -330,9 +332,15 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL fo
 	if(!node)
 		return NULL;
 	if(node->left)
+	{
 		node->left = purge_rc(node->left, callback, force);
+		node = merge_left(node);
+	}
 	if(node->right)
+	{
 		node->right = purge_rc(node->right, callback, force);
+		node = merge_right(node);
+	}
 	if(!node->base_size && !node->size)
 	{
 		if(node->left)

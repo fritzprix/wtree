@@ -36,34 +36,60 @@ static pthread_t thrs[TH_CNT];
 
 static int test_malloc_perf();
 
+typedef struct {
+	nrbtreeNode_t   node;
+	uint64_t        base;
+}mem_alloc_t;
 static nwtreeNode_t nodes[20];
+static nrbtreeNode_t rbnodes[20];
+static mem_alloc_t alloc_nodes[20];
+const char* MARKER = "HELLO_MALLOC!!";
 static DECLARE_PURGE_CALLBACK(onpurge);
+
+
 
 int main(void){
 
 	int i;
 	nwtreeRoot_t root;
+	nrbtreeRoot_t rbroot;
+	cdsl_nrbtreeRootInit(&rbroot);
 	uint32_t base = 0;
 	uint32_t sz = 0;
 	void* chk = NULL;
 	nwtree_rootInit(&root);
 	size_t fsz,tsz = 0;
+	nwtreeNode_t* node;
+	nrbtreeNode_t* trnode = NULL;
+
+	for(i = 0;i < 20;i++)
+	{
+		cdsl_nrbtreeNodeInit(&rbnodes[i],i);
+		cdsl_nrbtreeInsert(&rbroot,&rbnodes[i]);
+	}
+	while(!cdsl_nrbtreeIsEmpty(&rbroot))
+	{
+		trnode = cdsl_nrbtreeDeleteMax(&rbroot);
+		printf("node key : %lu\n",trnode->key);
+	}
+	printf("========== Start Allocate Segment with mmap ===========\n");
 	for(i = 0;i < 20;i++)
 	{
 		sz = ((rand() % 4096) + 512) & ~(0x1FF);
 		chk = mmap(NULL, sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
-		printf("Size : %d @ %lu\n" , sz, (uint64_t) chk);
+		printf("Add segment /w size : %d @ %lu --> " , sz, (uint64_t) chk);
 		nwtree_baseNodeInit(&nodes[i],chk,sz);
 		nwtree_addNode(&root, &nodes[i]);
 		tsz = nwtree_totalSize(&root);
-		printf("Total Size : %u\n",tsz);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
 	}
-	nwtreeNode_t* node;
+	printf("========== Repeat reclaim chunk & free ===========\n");
 	for(i = 0;i < 20;i++)
 	{
 		sz = ((rand() % 2048) + 512);
 		chk = nwtree_reclaim_chunk(&root, sz);
-		printf("Reclaimed chunk size : %u\n", sz);
+		printf("Reclaimed chunk size : %u --> ", sz);
 		node = (nwtreeNode_t*) chk;
 		if(!chk)
 		{
@@ -75,12 +101,74 @@ int main(void){
 		nwtree_nodeInit(node, chk, sz);
 		nwtree_addNode(&root, node);
 		fsz = nwtree_freeSize(&root);
-		printf("Free size : %u\n",fsz);
-		nwtree_print(&root);
+		printf("After free operation Free size : %u\n",fsz);
 	}
-//	test_malloc_perf();
 	nwtree_purge(&root, onpurge);
-	nwtree_print(&root);
+	tsz = nwtree_totalSize(&root);
+	fsz = nwtree_freeSize(&root);
+	printf("===========  purge operation ================\n");
+	printf("After Purge operation -> ");
+	printf("Total Size : %u & free size : %u\n",tsz,fsz);
+
+	printf("========== Start Allocate Segment with mmap ===========\n");
+	for(i = 0;i < 20;i++)
+	{
+		sz = ((rand() % 4096) + 512) & ~(0x1FF);
+		chk = mmap(NULL, sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
+		printf("Add segment /w size : %d @ %lu --> " , sz, (uint64_t) chk);
+		nwtree_baseNodeInit(&nodes[i],chk,sz);
+		nwtree_addNode(&root, &nodes[i]);
+		tsz = nwtree_totalSize(&root);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
+	}
+	for(i = 0;i < 10;i++)
+	{
+		sz = ((rand() % 2048) + 512);
+		chk = nwtree_reclaim_chunk(&root, sz);
+		printf("Reclaimed chunk size : %u --> ", sz);
+		trnode = (nrbtreeNode_t*) chk;
+		if(!chk)
+		{
+			printf("fail to alloc\n");
+		}
+		cdsl_nrbtreeNodeInit(&alloc_nodes[i].node,sz);
+		alloc_nodes[i].base = (uint64_t) chk;
+		memcpy(chk, MARKER, strlen(MARKER));
+		printf("Written Markker : %s\n",chk);
+		tsz = nwtree_totalSize(&root);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
+		cdsl_nrbtreeInsert(&rbroot,&alloc_nodes[i].node);
+	}
+	nwtree_purge(&root, onpurge);
+	tsz = nwtree_totalSize(&root);
+	fsz = nwtree_freeSize(&root);
+	printf("===========  purge operation ================\n");
+	printf("After Purge operation -> ");
+	printf("Total Size : %u & free size : %u\n",tsz,fsz);
+	mem_alloc_t* alloc_node;
+	while(!cdsl_nrbtreeIsEmpty(&rbroot))
+	{
+		alloc_node = (mem_alloc_t*) cdsl_nrbtreeDeleteMax(&rbroot);
+		if(!alloc_node)
+		{
+			perror("unexpected null!\n");
+			exit(-1);
+		}
+		node = (nwtreeNode_t*) alloc_node->base;
+		if(memcmp(node, MARKER,sizeof(MARKER)))
+		{
+			perror("unexpected corruption!\n");
+			exit(-1);
+		}
+		nwtree_nodeInit(alloc_node->base, alloc_node->base, alloc_node->node.key);
+		printf("free chunk /w size of %u -> ",alloc_node->node.key);
+		nwtree_addNode(&root, node);
+		tsz = nwtree_totalSize(&root);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
+	}
 	return 0;
 }
 
