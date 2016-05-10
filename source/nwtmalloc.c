@@ -17,7 +17,7 @@
 #include <sys/mman.h>
 
 #ifndef SEGMENT_SIZE
-#define SEGMENT_SIZE            ((size_t) 1 << 12)
+#define SEGMENT_SIZE            ((size_t) 1 << 20)
 #endif
 
 static pthread_key_t cache_key;
@@ -55,6 +55,10 @@ void nwt_exit()
  */
 void* nwt_malloc(size_t sz)
 {
+	if(!sz)
+		return NULL;
+	if(sz < sizeof(nwtreeNode_t))
+		sz = sizeof(nwtreeNode_t);
 	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	sz += sizeof(struct chunk_header);                     // need additional size to put chunk header for keeping track of chunk size
 	size_t seg_sz = SEGMENT_SIZE;
@@ -88,13 +92,13 @@ void* nwt_realloc(void* chnk, size_t sz)
 	if(!chnk || !sz)
 		return NULL;
 	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	void* nchnk;
 	if(!cache)
 	{
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	size_t* sz_chk, *cur_sz;
+	void* nchnk;
+	size_t *sz_chk, *cur_sz;
 	cur_sz = &((size_t*) chnk)[-1];
 	sz_chk = (size_t*) &(((uint8_t*) chnk)[*cur_sz]);
 	if(*cur_sz != *sz_chk)
@@ -203,7 +207,7 @@ static void nwt_cache_dstr(void* cache)
 	if(!cache)
 		return;
 	nwt_cache_t* cachep = (nwt_cache_t*) cache;
-	nwtree_purgeAll(&cachep->root, onpurge);
+	nwtree_purge(&cachep->root, onpurge);
 }
 
 

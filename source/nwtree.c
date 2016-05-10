@@ -232,13 +232,6 @@ static nwtreeNode_t* merge_left(nwtreeNode_t* merger)
 	{
 		merger = rotate_right(merger);
 		merger = merge_right(merger);
-		/*
-		merger->size += merger->left->size;
-		if(merger->left->base_size)
-			merger->base_size += merger->left->base_size;
-		merger->base = merger->left->base;
-		merger->left->size = 0;
-		merger->left = resolve(merger->left);*/
 	}
 	return merger;
 }
