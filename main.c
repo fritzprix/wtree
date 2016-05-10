@@ -6,9 +6,7 @@
  */
 
 
-#include "wtree.h"
-#include "wtmalloc.h"
-#include "ymalloc.h"
+#include "nwtmalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -145,51 +143,43 @@ int main(void){
 		fsz = nwtree_freeSize(&root);
 		printf("Total Size : %u & free size : %u\n",tsz,fsz);
 	}
+	for(i = 0;i < 10;i++)
+	{
+		sz = ((rand() % 2048) + 512);
+		sz &= ~3;
+		chk = nwtree_reclaim_chunk(&root, sz);
+		printf("Reclaimed chunk size : %u --> ", sz);
+		trnode = (nrbtreeNode_t*) chk;
+		if(!chk)
+		{
+			printf("fail to alloc\n");
+		}
+		cdsl_nrbtreeNodeInit(trnode,sz);
+		tsz = nwtree_totalSize(&root);
+		fsz = nwtree_freeSize(&root);
+		printf("Total Size : %u & free size : %u\n",tsz,fsz);
+		cdsl_nrbtreeInsert(&rbroot,trnode);
+	}
+	tsz = nwtree_totalSize(&root);
+	fsz = nwtree_freeSize(&root);
+	printf("Total Size : %u & free size : %u\n",tsz,fsz);
+	nwtree_purgeAll(&root,onpurge);
+	tsz = nwtree_totalSize(&root);
+	fsz = nwtree_freeSize(&root);
+	printf("After PurgeForce Total Size : %u & free size : %u\n",tsz,fsz);
+
+
+	nwt_init();
+	malloc_test(NULL);
+	ymalloc_test(NULL);
 	return 0;
 }
 
-
-
-static int test_malloc_perf()
-{
-	int th_cnt;
-	struct test_report* report;
-	double av_alloc_time;
-	double av_free_time;
-	for(th_cnt = 0;th_cnt < TH_CNT;th_cnt++)
-	{
-		pthread_create(&thrs[th_cnt], NULL, malloc_test, NULL);
-	}
-	for(th_cnt = 0;th_cnt < TH_CNT;th_cnt++)
-	{
-		pthread_join(thrs[th_cnt],&report);
-		av_alloc_time += report->malloc_time;
-		av_free_time += report->free_time;
-	}
-	printf("AV MALLOC Time : %f\n",av_alloc_time);
-	printf("AV FREE Time : %f\n",av_free_time);
-
-
-	av_alloc_time = 0;
-	av_free_time = 0;
-	for(th_cnt = 0;th_cnt < TH_CNT;th_cnt++)
-	{
-		pthread_create(&thrs[th_cnt], NULL, ymalloc_test, NULL);
-	}
-	for(th_cnt = 0;th_cnt < TH_CNT;th_cnt++)
-	{
-		pthread_join(thrs[th_cnt],&report);
-		av_alloc_time += report->malloc_time;
-		av_free_time += report->free_time;
-	}
-	printf("AV yMALLOC Time : %f\n",av_alloc_time);
-	printf("AV yFREE Time : %f\n",av_free_time);
-	return 0;
-}
 
 
 static void* malloc_test(void* arg)
 {
+	printf("========== old malloc(libc default) test begin =============\n");
 	int cnt;
 	person_t* p = NULL;
 	struct test_report* report;
@@ -218,7 +208,7 @@ static void* malloc_test(void* arg)
 	}
 	end = clock();
 	report->malloc_time = (double) (end - start) / CLOCKS_PER_SEC;
-	printf("malloc finished!!\n");
+	printf("malloc finished %f!!\n", report->malloc_time);
 
 	start = clock();
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
@@ -231,15 +221,20 @@ static void* malloc_test(void* arg)
 	}
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
+	printf("free finished %f!!\n", report->free_time);
+	printf("========== old malloc(libc default) test end =============\n");
+
 	return (void*) report;
 }
 
 static void* ymalloc_test(void* arg)
 {
+	printf("========== new malloc(wtmalloc) test begin =============\n");
 	int cnt;
 	person_t* p = NULL;
 	struct test_report* report;
-	report = ymalloc(sizeof(report));
+	nwt_init();
+	report = nwt_malloc(sizeof(report));
 	nrbtreeRoot_t root;
 	cdsl_nrbtreeRootInit(&root);
 
@@ -249,22 +244,22 @@ static void* ymalloc_test(void* arg)
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		rn = rand() % 1000;
-		p = ymalloc(rn);
-		yfree(p);
+		p = nwt_malloc(rn);
+		nwt_free(p);
 	}
 	end = clock();
 	printf("simple repeat malloc & free : %f\n",(double) (end - start) / CLOCKS_PER_SEC);
 
 	start = clock();
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		p = ymalloc(sizeof(person_t));
+		p = nwt_malloc(sizeof(person_t));
 		p->age = cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		cdsl_nrbtreeInsert(&root, &p->node);
 	}
 	end = clock();
 	report->malloc_time = (double) (end - start) / CLOCKS_PER_SEC;
-	printf("malloc finished!!\n");
+	printf("malloc finished %f!!\n", report->malloc_time);
 
 	start = clock();
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
@@ -273,10 +268,13 @@ static void* ymalloc_test(void* arg)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
 		}
-		yfree(p);
+		nwt_free(p);
 	}
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
+	printf("free finished %f!!\n", report->free_time);
+	printf("========== new malloc(wtmalloc) test end =============\n");
+
 	return (void*) report;
 }
 
