@@ -18,7 +18,7 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define TEST_CNT    1000000
+#define TEST_CNT    10000
 #define TH_CNT      50
 
 typedef struct  {
@@ -33,6 +33,7 @@ struct test_report {
 	double repeat_malloc_free_time;
 	double malloc_time;
 	double free_time;
+	double realloc_time;
 };
 
 static void* malloc_test(void* );
@@ -51,6 +52,7 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -126,6 +128,19 @@ static void* malloc_test(void* arg)
 	}
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
+	start = clock();
+	p = (person_t*) malloc(1);
+	for(cnt = 1;cnt < TEST_CNT;cnt++)
+	{
+		p = (person_t*) realloc(p, cnt);
+		if(!p)
+		{
+			fprintf(stderr,"abnormal pointer from tree !!\n");
+		}
+	}
+	free(p);
+	end = clock();
+	report->realloc_time = (double) (end - start) / CLOCKS_PER_SEC;
 //	printf("free finished %f!!\n", report->free_time);
 //	printf("========== old malloc(libc default) test end =============\n");
 
@@ -134,6 +149,7 @@ static void* malloc_test(void* arg)
 
 static void* ymalloc_test(void* arg)
 {
+
 //	printf("========== new malloc(wtmalloc) test begin =============\n");
 	int cnt;
 	person_t* p = NULL;
@@ -177,6 +193,21 @@ static void* ymalloc_test(void* arg)
 	}
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
+
+	start = clock();
+	p = (person_t*) nwt_malloc(1);
+	for(cnt = 1;cnt < TEST_CNT;cnt++)
+	{
+		p = (person_t*) nwt_realloc(p, cnt);
+		if(!p)
+		{
+			fprintf(stderr,"abnormal pointer from tree !!\n");
+		}
+	}
+	nwt_free(p);
+	end = clock();
+	report->realloc_time = (double) (end - start) / CLOCKS_PER_SEC;
+
 //	printf("free finished %f!!\n", report->free_time);
 //	printf("========== new malloc(wtmalloc) test end =============\n");
 	return (void*) report;
@@ -320,6 +351,7 @@ static void print_report(const char* test_name, struct test_report* report)
 	printf("total malloc free repeatition time : %f\n",report->repeat_malloc_free_time);
 	printf("total malloc time : %f\n",report->malloc_time);
 	printf("total free time : %f\n", report->free_time);
+	printf("total realloc time : %f\n", report->realloc_time);
 	printf("==== END OF TEST REPORT[%s] ====\n", test_name);
 
 }
@@ -336,6 +368,7 @@ static void perf_test_nmalloc(void)
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+		rpt.realloc_time += reports[i].realloc_time;
 	}
 	print_report("new malloc",&rpt);
 }
@@ -352,6 +385,7 @@ static void perf_test_oldmalloc(void)
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+		rpt.realloc_time += reports[i].realloc_time;
 	}
 	print_report("old malloc", &rpt);
 }

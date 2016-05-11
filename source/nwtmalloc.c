@@ -17,7 +17,7 @@
 #include <sys/mman.h>
 
 #ifndef SEGMENT_SIZE
-#define SEGMENT_SIZE            ((size_t) 1 << 20)
+#define SEGMENT_SIZE            ((size_t) 1 << 16)
 #endif
 
 static pthread_key_t cache_key;
@@ -82,7 +82,7 @@ void* nwt_malloc(size_t sz)
 		nwtree_addNode(&cache->root,(nwtreeNode_t*) chnk);
 	}
 
-	*((size_t*) chnk ) = sz - sizeof(size_t);            // set current chunk size before the usable memory area
+	*((size_t*) chnk) = sz - sizeof(size_t);                        // set current chunk size before the usable memory area
 	*((size_t*) &chnk[sz - sizeof(size_t)]) = sz - sizeof(size_t);   // set prev_chunk size at the prev_sz field in next chunk header
 	return &chnk[sizeof(size_t)];
 }
@@ -101,15 +101,15 @@ void* nwt_realloc(void* chnk, size_t sz)
 	}
 	void* nchnk;
 	size_t *sz_chk, *cur_sz;
-	cur_sz = &((size_t*) chnk)[-1];
-	sz_chk = (size_t*) &(((uint8_t*) chnk)[*cur_sz]);
+	cur_sz = ((size_t*) chnk - 1);
+	sz_chk = (size_t*) &(((uint8_t*) cur_sz)[*cur_sz]);
 	if(*cur_sz != *sz_chk)
 	{
 		/*
 		 * if current size in chunk header is not identical to prev size in at the tail
 		 * header is assumed to be corrupted
 		 */
-		fprintf(stderr, "Heap corrupted\n");
+		fprintf(stderr, "Heap corrupted %lu : %lu\n",*cur_sz, *sz_chk);
 		exit(-1);
 	}
 	if((*cur_sz - sizeof(size_t)) >= sz)
@@ -122,7 +122,7 @@ void* nwt_realloc(void* chnk, size_t sz)
 	}
 
 	nchnk = nwt_malloc(sz);
-	memcpy(nchnk, chnk, sz);
+//	memcpy(nchnk, chnk, sz);
 	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(size_t));
 	nwtree_addNode(&cache->root, (nwtreeNode_t*)  cur_sz);
 	return nchnk;
