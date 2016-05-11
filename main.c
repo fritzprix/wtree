@@ -12,6 +12,9 @@
 #include <pthread.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
