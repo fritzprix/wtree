@@ -15,12 +15,15 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define TEST_CNT    10000
-#define TH_CNT      1
+#define TEST_CNT    1000000
+#define TH_CNT      50
 
 typedef struct  {
 	nrbtreeNode_t node;
 	int           age;
+	char          firstname[10];
+	char          lastname[20];
+	char          email[20];
 }person_t;
 
 struct test_report {
@@ -45,10 +48,32 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-	nwt_init();
-	perf_test_oldmalloc();
-	perf_test_nmalloc();
-
+	pid_t pid = fork();
+	if(pid > 0) {
+		wait(NULL);
+		pid = fork();
+		if(pid > 0) {
+			wait(NULL);
+			return 0;
+		}
+		else if(pid == 0) {
+			nwt_init();
+			perf_test_nmalloc();
+		}
+		else
+		{
+			perror("fork fail\n");
+			exit(-1);
+		}
+	}
+	else if(pid == 0) {
+		perf_test_oldmalloc();
+	}
+	else
+	{
+		perror("fork fail\n");
+		exit(-1);
+	}
 	return 0;
 }
 
@@ -288,11 +313,11 @@ static void basic_poc(void)
 
 static void print_report(const char* test_name, struct test_report* report)
 {
-	printf("==== START OF TEST REPORT for %s ====\n", test_name);
+	printf("\n==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total malloc free repeatition time : %f\n",report->repeat_malloc_free_time);
 	printf("total malloc time : %f\n",report->malloc_time);
 	printf("total free time : %f\n", report->free_time);
-	printf("==== END OF TEST REPORT for %s ====\n", test_name);
+	printf("==== END OF TEST REPORT[%s] ====\n", test_name);
 
 }
 

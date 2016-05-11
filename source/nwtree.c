@@ -18,6 +18,7 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
 static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback,BOOL force);
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
+static size_t count_rc(nwtreeNode_t* node);
 static nwtreeNode_t* rotate_left(nwtreeNode_t* parent);
 static nwtreeNode_t* rotate_right(nwtreeNode_t* parent);
 static nwtreeNode_t* resolve_left(nwtreeNode_t* parent);
@@ -80,6 +81,14 @@ size_t nwtree_totalSize(nwtreeRoot_t* root)
 		return 0;
 	return size_rc(root->entry);
 }
+
+size_t nwtree_nodeCount(nwtreeRoot_t* root)
+{
+	if(!root)
+		return 0;
+	return count_rc(root->entry);
+}
+
 
 size_t nwtree_freeSize(nwtreeRoot_t* root)
 {
@@ -268,11 +277,46 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 		return item;
 	if(parent->base < item->base)
 	{
+		if((parent->base + parent->size == item->base))
+		{
+			if(!item->base_size)
+			{
+				// merge base_node and normal node
+				parent->size += item->size;
+				return parent;
+			}
+			else
+			{
+				// merge two base_node
+				parent->size += item->size;
+				parent->base_size += item->base_size;
+				return parent;
+			}
+		}
+		if((parent->base + parent->size == item->base) && item->base_size)
 		parent->right = insert_rc(parent->right,item);
 		return resolve(merge_right(parent));
 	}
 	else
 	{
+		if((item->base + item->size == parent->base) && !parent->base_size)
+		{
+			if(!parent->base_size)
+			{
+				item->size += parent->size;
+				item->left = parent->left;
+				item->right = parent->right;
+				return item;
+			}
+			else
+			{
+				item->size += parent->size;
+				item->base_size += parent->base_size;
+				item->left = parent->left;
+				item->right = parent->right;
+				return item;
+			}
+		}
 		parent->left = insert_rc(parent->left,item);
 		return resolve(merge_left(parent));
 	}
@@ -387,4 +431,20 @@ static size_t fsize_rc(nwtreeNode_t* node)
 	sz += fsize_rc(node->right);
 	return sz;
 }
+
+static size_t count_rc(nwtreeNode_t* node)
+{
+	if(!node)
+		return 0;
+	if(!node->right && !node->left)
+		return 1;
+	if(node->right && node->left)
+		return count_rc(node->left) + count_rc(node->right) + 1;
+	if(!node->right)
+		return count_rc(node->left) + 1;
+	if(!node->left)
+		return count_rc(node->right) + 1;
+	return 0;
+}
+
 

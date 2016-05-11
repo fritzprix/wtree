@@ -59,6 +59,7 @@ extern void nwtree_purge(nwtreeRoot_t* root, purge_func_t callback);
 extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node);
 extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz);
 extern void nwtree_print(nwtreeRoot_t* root);
+extern size_t nwtree_nodeCount(nwtreeRoot_t* root);
 extern size_t nwtree_totalSize(nwtreeRoot_t* root);
 extern size_t nwtree_freeSize(nwtreeRoot_t* root);
 

@@ -91,6 +91,8 @@ void* nwt_realloc(void* chnk, size_t sz)
 {
 	if(!chnk || !sz)
 		return NULL;
+	if(sz < sizeof(nwtreeNode_t))
+		sz = sizeof(nwtreeNode_t);
 	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if(!cache)
 	{
