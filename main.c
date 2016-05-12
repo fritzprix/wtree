@@ -18,7 +18,7 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define TEST_CNT    10000
+#define TEST_CNT    100000
 #define TH_CNT      50
 
 typedef struct  {
@@ -34,6 +34,8 @@ struct test_report {
 	double malloc_time;
 	double free_time;
 	double realloc_time;
+	double repeat_deep_malloc_free_time_fix_size;
+	double repeat_deep_malloc_free_time_rnd_size;
 };
 
 static void* malloc_test(void* );
@@ -62,8 +64,7 @@ int main(void){
 			return 0;
 		}
 		else if(pid == 0) {
-			nwt_init();
-			perf_test_nmalloc();
+			perf_test_oldmalloc();
 		}
 		else
 		{
@@ -72,7 +73,8 @@ int main(void){
 		}
 	}
 	else if(pid == 0) {
-		perf_test_oldmalloc();
+		nwt_init();
+		perf_test_nmalloc();
 	}
 	else
 	{
@@ -98,7 +100,7 @@ static void* malloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % 1000) & ~7;
+		rn = (rand() % 1000);
 		p = malloc(rn);
 		free(p);
 	}
@@ -128,6 +130,53 @@ static void* malloc_test(void* arg)
 	}
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
+
+	int loop_cnt;
+	start = clock();
+	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = malloc(sizeof(person_t));
+			p->age = cnt;
+			cdsl_nrbtreeNodeInit(&p->node,cnt);
+			cdsl_nrbtreeInsert(&root, &p->node);
+		}
+
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			if(!p)
+			{
+				fprintf(stderr,"abnormal pointer from tree !!\n");
+			}
+			free(p);
+		}
+	}
+	end = clock();
+	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
+
+
+	start = clock();
+	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			rn = rand() % 1024 + sizeof(nrbtreeNode_t) & ~3;
+			p = malloc(rn);
+			cdsl_nrbtreeNodeInit(&p->node,cnt);
+			cdsl_nrbtreeInsert(&root, &p->node);
+		}
+
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			if(!p)
+			{
+				fprintf(stderr,"abnormal pointer from tree !!\n");
+			}
+			free(p);
+		}
+//		nwt_print();
+	}
+	end = clock();
+	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
+
 	start = clock();
 	p = (person_t*) malloc(1);
 	for(cnt = 1;cnt < TEST_CNT;cnt++)
@@ -163,8 +212,8 @@ static void* ymalloc_test(void* arg)
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		rn = (rand() % 1000);
-		p = malloc(rn);
-		free(p);
+		p = nwt_malloc(rn);
+		nwt_free(p);
 	}
 	end = clock();
 	report->repeat_malloc_free_time = (double) (end - start) / CLOCKS_PER_SEC;
@@ -194,6 +243,52 @@ static void* ymalloc_test(void* arg)
 	end = clock();
 	report->free_time = (double) (end - start) / CLOCKS_PER_SEC;
 
+	int loop_cnt;
+	start = clock();
+	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = nwt_malloc(sizeof(person_t));
+			p->age = cnt;
+			cdsl_nrbtreeNodeInit(&p->node,cnt);
+			cdsl_nrbtreeInsert(&root, &p->node);
+		}
+
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			if(!p)
+			{
+				fprintf(stderr,"abnormal pointer from tree !!\n");
+			}
+			nwt_free(p);
+		}
+//		nwt_print();
+	}
+	end = clock();
+	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
+
+
+	start = clock();
+	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			rn = rand() % 1024 + sizeof(nrbtreeNode_t) & ~3;
+			p = nwt_malloc(rn);
+			cdsl_nrbtreeNodeInit(&p->node,cnt);
+			cdsl_nrbtreeInsert(&root, &p->node);
+		}
+
+		for(cnt = 0;cnt < TEST_CNT;cnt++){
+			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			if(!p)
+			{
+				fprintf(stderr,"abnormal pointer from tree !!\n");
+			}
+			nwt_free(p);
+		}
+//		nwt_print();
+	}
+	end = clock();
+	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
+
 	start = clock();
 	p = (person_t*) nwt_malloc(1);
 	for(cnt = 1;cnt < TEST_CNT;cnt++)
@@ -208,8 +303,6 @@ static void* ymalloc_test(void* arg)
 	end = clock();
 	report->realloc_time = (double) (end - start) / CLOCKS_PER_SEC;
 
-//	printf("free finished %f!!\n", report->free_time);
-//	printf("========== new malloc(wtmalloc) test end =============\n");
 	return (void*) report;
 }
 
@@ -349,6 +442,8 @@ static void print_report(const char* test_name, struct test_report* report)
 {
 	printf("\n==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total malloc free repeatition time : %f\n",report->repeat_malloc_free_time);
+	printf("total malloc free deep repeatition time /w fixed size : %f\n", report->repeat_deep_malloc_free_time_fix_size);
+	printf("total malloc free deep repeatition time /w random size : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
 	printf("total malloc time : %f\n",report->malloc_time);
 	printf("total free time : %f\n", report->free_time);
 	printf("total realloc time : %f\n", report->realloc_time);
@@ -368,6 +463,8 @@ static void perf_test_nmalloc(void)
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
+		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;
 		rpt.realloc_time += reports[i].realloc_time;
 	}
 	print_report("new malloc",&rpt);
@@ -385,6 +482,8 @@ static void perf_test_oldmalloc(void)
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
+		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;
 		rpt.realloc_time += reports[i].realloc_time;
 	}
 	print_report("old malloc", &rpt);

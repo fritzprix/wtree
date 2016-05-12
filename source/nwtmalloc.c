@@ -17,7 +17,7 @@
 #include <sys/mman.h>
 
 #ifndef SEGMENT_SIZE
-#define SEGMENT_SIZE            ((size_t) 1 << 16)
+#define SEGMENT_SIZE            ((size_t) 1 << 20)
 #endif
 
 static pthread_key_t cache_key;
@@ -136,6 +136,18 @@ void* nwt_calloc(size_t sz)
 	memset(chnk,0,sz);
 	return chnk;
 }
+
+extern void nwt_print()
+{
+	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if(!cache)
+	{
+		fprintf(stderr, "Heap uninitialized\n");
+		exit(-1);
+	}
+	nwtree_print(&cache->root);
+}
+
 
 void nwt_free(void* chnk)
 {

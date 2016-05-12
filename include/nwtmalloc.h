@@ -21,6 +21,7 @@ extern void* nwt_malloc(size_t sz);
 extern void nwt_stats();
 extern void* nwt_realloc(void* chnk, size_t sz);
 extern void* nwt_calloc(size_t sz);
+extern void nwt_print();
 extern void nwt_free(void* chnk);
 
 extern void nwt_purgeCache();

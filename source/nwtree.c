@@ -143,7 +143,7 @@ static void print_rc(nwtreeNode_t* parent,int depth)
 		return;
 	print_rc(parent->right, depth + 1);
 	print_tab(depth);
-	printf("Node@%lu {size : %u / base_size : %u }\n",(uint64_t)parent->base, parent->size, parent->base_size);
+	printf("Node@%lu {size : %u / base_size : %u } (%d)\n",(uint64_t)parent->base, parent->size, parent->base_size,depth);
 	print_rc(parent->left,depth + 1);
 }
 
@@ -202,6 +202,43 @@ static nwtreeNode_t* resolve_right(nwtreeNode_t* parent)
 	return parent;
 }
 
+/*
+static nwtreeNode_t* resolve(nwtreeNode_t* parent)
+{
+
+	if(!parent)
+		return NULL;
+	if(parent->right)
+	{
+		if(parent->right->size > parent->size)
+		{
+			parent = rotate_left(parent);
+			parent->left = resolve(parent->left);
+		}
+		if(parent->right && !parent->right->size)
+		{
+			parent->right = resolve(parent->right);
+		}
+	}
+	if(parent->left)
+	{
+		if(parent->left->size > parent->size)
+		{
+			parent = rotate_right(parent);
+			parent->right = resolve(parent->right);
+		}
+		if(parent->left && !parent->left->size)
+		{
+			parent->left = resolve(parent->left);
+		}
+	}
+
+	if(!parent->left && !parent->right && (parent->size == 0))
+		return NULL;
+	return parent;
+}*/
+
+
 static nwtreeNode_t* resolve(nwtreeNode_t* parent)
 {
 	if(!parent)
@@ -219,7 +256,6 @@ static nwtreeNode_t* resolve(nwtreeNode_t* parent)
 	if(!parent->left && !parent->right && (parent->size == 0))
 		return NULL;
 	return parent;
-
 }
 
 
@@ -262,8 +298,9 @@ static nwtreeNode_t* merge_right(nwtreeNode_t* merger)
 	if((merger->base + merger->size) == merger->right->base)
 	{
 		merger->size += merger->right->size;
-		if(merger->right->base_size)
+		if(merger->right->base_size){
 			merger->base_size += merger->right->base_size;
+		}
 		merger->right->size = 0;
 		merger->right = resolve(merger->right);
 	}
@@ -279,46 +316,33 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 	{
 		if((parent->base + parent->size == item->base))
 		{
-			if(!item->base_size)
-			{
-				// merge base_node and normal node
-				parent->size += item->size;
-				return parent;
-			}
-			else
-			{
-				// merge two base_node
-				parent->size += item->size;
+			if(item->base_size)
 				parent->base_size += item->base_size;
-				return parent;
-			}
+			parent->size += item->size;
+			return parent;
 		}
-		if((parent->base + parent->size == item->base) && item->base_size)
 		parent->right = insert_rc(parent->right,item);
-		return resolve(merge_right(parent));
+		if(parent->right && (parent->right->size > parent->size)) {
+			parent = rotate_left(parent);
+		}
+		return merge_right(parent);
 	}
 	else
 	{
 		if((item->base + item->size == parent->base) && !parent->base_size)
 		{
-			if(!parent->base_size)
-			{
-				item->size += parent->size;
-				item->left = parent->left;
-				item->right = parent->right;
-				return item;
-			}
-			else
-			{
-				item->size += parent->size;
+			if(parent->base_size)
 				item->base_size += parent->base_size;
-				item->left = parent->left;
-				item->right = parent->right;
-				return item;
-			}
+			item->size += parent->size;
+			item->left = parent->left;
+			item->right = parent->right;
+			return item;
 		}
 		parent->left = insert_rc(parent->left,item);
-		return resolve(merge_left(parent));
+		if(parent->left && (parent->left->size > parent->size)) {
+			parent = rotate_right(parent);
+		}
+		return merge_left(parent);
 	}
 }
 
