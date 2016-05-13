@@ -122,7 +122,7 @@ void* nwt_realloc(void* chnk, size_t sz)
 	}
 
 	nchnk = nwt_malloc(sz);
-//	memcpy(nchnk, chnk, sz);
+	memcpy(nchnk, chnk, *cur_sz);
 	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(size_t));
 	nwtree_addNode(&cache->root, (nwtreeNode_t*)  cur_sz);
 	return nchnk;

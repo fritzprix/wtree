@@ -18,8 +18,9 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define TEST_CNT    100000
-#define TH_CNT      50
+#define TEST_CNT     100000
+#define MAX_REQ_SIZE 2048
+#define TH_CNT       50
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -100,7 +101,7 @@ static void* malloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % 1000);
+		rn = (rand() % MAX_REQ_SIZE);
 		p = malloc(rn);
 		free(p);
 	}
@@ -158,7 +159,7 @@ static void* malloc_test(void* arg)
 	start = clock();
 	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = rand() % 1024 + sizeof(nrbtreeNode_t) & ~3;
+			rn = rand() % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
 			p = malloc(rn);
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
@@ -179,7 +180,7 @@ static void* malloc_test(void* arg)
 
 	start = clock();
 	p = (person_t*) malloc(1);
-	for(cnt = 1;cnt < TEST_CNT;cnt++)
+	for(cnt = 1;cnt < TEST_CNT;cnt <<= 1)
 	{
 		p = (person_t*) realloc(p, cnt);
 		if(!p)
@@ -211,7 +212,7 @@ static void* ymalloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % 1000);
+		rn = (rand() % MAX_REQ_SIZE);
 		p = nwt_malloc(rn);
 		nwt_free(p);
 	}
@@ -270,7 +271,7 @@ static void* ymalloc_test(void* arg)
 	start = clock();
 	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = rand() % 1024 + sizeof(nrbtreeNode_t) & ~3;
+			rn = rand() % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
 			p = nwt_malloc(rn);
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
@@ -291,7 +292,7 @@ static void* ymalloc_test(void* arg)
 
 	start = clock();
 	p = (person_t*) nwt_malloc(1);
-	for(cnt = 1;cnt < TEST_CNT;cnt++)
+	for(cnt = 1;cnt < TEST_CNT;cnt <<= 1)
 	{
 		p = (person_t*) nwt_realloc(p, cnt);
 		if(!p)

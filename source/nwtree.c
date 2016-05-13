@@ -15,6 +15,7 @@
 #include "cdsl_slist.h"
 
 static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
+static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,uint32_t nsz);
 static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback,BOOL force);
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
@@ -108,7 +109,7 @@ void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node)
 
 void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz)
 {
-	if(!root)
+	if(!root || (sz <= 0))
 		return NULL;
 	if(!root->entry)
 		return NULL;
@@ -121,6 +122,16 @@ void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz)
 	root->entry = resolve(root->entry);
 	return chunk;
 }
+
+void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz)
+{
+	if(!root || (nsz <= 0))
+		return NULL;
+	if(!root->entry)
+		return NULL;
+	root->entry = grows_node(root->entry, &node, nsz);
+}
+
 
 void nwtree_print(nwtreeRoot_t* root)
 {
@@ -201,42 +212,6 @@ static nwtreeNode_t* resolve_right(nwtreeNode_t* parent)
 	}
 	return parent;
 }
-
-/*
-static nwtreeNode_t* resolve(nwtreeNode_t* parent)
-{
-
-	if(!parent)
-		return NULL;
-	if(parent->right)
-	{
-		if(parent->right->size > parent->size)
-		{
-			parent = rotate_left(parent);
-			parent->left = resolve(parent->left);
-		}
-		if(parent->right && !parent->right->size)
-		{
-			parent->right = resolve(parent->right);
-		}
-	}
-	if(parent->left)
-	{
-		if(parent->left->size > parent->size)
-		{
-			parent = rotate_right(parent);
-			parent->right = resolve(parent->right);
-		}
-		if(parent->left && !parent->left->size)
-		{
-			parent->left = resolve(parent->left);
-		}
-	}
-
-	if(!parent->left && !parent->right && (parent->size == 0))
-		return NULL;
-	return parent;
-}*/
 
 
 static nwtreeNode_t* resolve(nwtreeNode_t* parent)
@@ -345,6 +320,14 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 		return merge_left(parent);
 	}
 }
+
+static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,uint32_t nsz)
+{
+	/*
+	 *
+	 */
+}
+
 
 static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL force)
 {
