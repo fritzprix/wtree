@@ -16,7 +16,7 @@
 
 static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
 static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,uint32_t nsz);
-static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback,BOOL force);
+static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback);
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
 static size_t count_rc(nwtreeNode_t* node);
@@ -28,6 +28,7 @@ static nwtreeNode_t* resolve_right(nwtreeNode_t* parent);
 static nwtreeNode_t* resolve(nwtreeNode_t* parent);
 static nwtreeNode_t* merge_left(nwtreeNode_t* parent);
 static nwtreeNode_t* merge_right(nwtreeNode_t* parent);
+static nwtreeNode_t* merge_rc(nwtreeNode_t* parent);
 static void print_rc(nwtreeNode_t* parent,int depth);
 static void print_tab(int times);
 
@@ -64,18 +65,11 @@ void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz)
 	node->base_size = node->size = sz;
 }
 
-void nwtree_purgeAll(nwtreeRoot_t* root, purge_func_t callback)
-{
-	if(!root)
-		return;
-	root->entry = purge_rc(root->entry, callback, TRUE);
-}
-
 void nwtree_purge(nwtreeRoot_t* root, purge_func_t callback)
 {
 	if(!root)
 		return;
-	root->entry = purge_rc(root->entry, callback, FALSE);
+	root->entry = purge_rc(root->entry, callback);
 }
 
 size_t nwtree_totalSize(nwtreeRoot_t* root)
@@ -146,7 +140,7 @@ void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz)
 		return NULL;
 	if(!root->entry)
 		return NULL;
-	root->entry = grows_node(root->entry, node, nsz);
+	root->entry = grows_node(root->entry, &node, nsz);
 	if(node)
 		return node;
 	return nwtree_reclaim_chunk(root, nsz);
@@ -267,7 +261,11 @@ static nwtreeNode_t* merge_left(nwtreeNode_t* merger)
 	if(!merger->left)
 		return merger;
 	if(merger->size == 0)
+	{
+		if(!merger->left && !merger->right)
+			return NULL;
 		return resolve(merger);
+	}
 	if((merger->left->base + merger->left->size) == merger->base)
 	{
 		merger = rotate_right(merger);
@@ -289,11 +287,15 @@ static nwtreeNode_t* merge_right(nwtreeNode_t* merger)
 	if(!merger->right)
 		return merger;
 	if(merger->size == 0)
+	{
+		if(!merger->left && !merger->right)
+			return NULL;
 		return resolve(merger);
+	}
 	if((merger->base + merger->size) == merger->right->base)
 	{
 		merger->size += merger->right->size;
-		if(merger->right->base_size){
+		if(merger->right->base_size) {
 			merger->base_size += merger->right->base_size;
 		}
 		merger->right->size = 0;
@@ -301,6 +303,62 @@ static nwtreeNode_t* merge_right(nwtreeNode_t* merger)
 	}
 	return merger;
 }
+
+static nwtreeNode_t* merge_rc(nwtreeNode_t* parent)
+{
+	if(!parent)
+		return NULL;
+	if(!parent->right && !parent->left){
+		if(!parent->size)
+			return NULL;
+		return parent;
+	}
+	if(parent->right)
+	{
+		parent->right = resolve(merge_rc(parent->right));
+		if((parent->base + parent->size) == parent->right->base)
+		{
+			parent->size += parent->right->size;
+			if(parent->base_size)
+				parent->base_size += parent->right->base_size;
+			parent->right->size = 0;
+			parent->right->base_size = 0;
+			// push down zero marked node
+			parent->right = resolve(parent->right);
+		}
+		else
+		{
+			if(parent->right->size > parent->size)
+			{
+				return rotate_left(parent);
+			}
+		}
+	}
+	if(parent->left)
+	{
+		parent->left = resolve(merge_rc(parent->left));
+		if((parent->left->base + parent->left->size) == parent->base)
+		{
+			parent = rotate_right(parent);
+			parent->size += parent->right->size;
+			if(parent->base_size)
+				parent->base_size += parent->right->base_size;
+			parent->right->size = 0;
+			parent->right->base_size = 0;
+			// push down zero marked node
+			parent->right = resolve(parent->right);
+		}
+		else
+		{
+			if(parent->left->size > parent->size)
+			{
+				return rotate_right(parent);
+			}
+		}
+	}
+	return parent;
+}
+
 
 
 static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
@@ -343,65 +401,72 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 
 static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,uint32_t nsz)
 {
+	if(!parent)
+		return NULL;
+	if(parent->size == 0)
+		return NULL;
+
 }
 
+/*
+ *   CAUTION : force option is not recomended in normal case. because it assumes any allocated chunk will not
+ *             be referenced and after this operation any allocated pointer can become dangled.
+ *             force option is intended to be used only at thread cleanup stage instead of normal operation.
+ *
+ *   basic stratedgy is push purgeable node down so that it can be easily removed from the tree
+ *      node (base_size == size)  -> purgeable  (p)
+ *      node (base_size != size)  -> non purgeable (np)
+ *      node (purgeable && (node->left == (purgeable or null)) && (node->right == (purgeable or null)))  -> removable
+ *   by rotating subtree(s) following below rules, purgeable node can be removable node.
+ *
+ *
+ *   case i.
+ *          p(p)                               r(np)
+ *         /   \      -- rotate left -->       /   \
+ *      l(p) r(np)                          p(p)    rr
+ *            /  \                          /  \
+ *          rl    rr                      l(p) rl
+ *
+ *   case ii.
+ *          p(p)                               l(np)
+ *         /   \      -- rotate right -->      /   \
+ *      l(np)  r(p)                           ll   p(p)
+ *       /  \                                      /  \
+ *     ll   lr                                    lr  r(p)
+ *
+ *   case iii.
+ *          p(p)                               r(np)                                    r(np)
+ *         /   \      -- rotate left -->       /   \    -- rotate right (pivot p) -->   /   \
+ *     l(np)   r(np)                        p(p)    rr                               l(np)   rr
+ *      /  \    /  \                        /  \                                      /  \
+ *    ll   lr  rl   rr                   l(np) rl                                    ll  p(p)
+ *                                       /  \                                            /  \
+ *                                      ll  lr                                          lr  rl
+ *
+ *   case iv.
+ *            p(p or np)                       p(p or np)
+ *           /   \     -- purge child -->      /    \
+ *  [l(p) or 0]  [r(p) or 0]                  0      0
+ *
+ */
 
-static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL force)
+static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback)
 {
-	/**
-	 *   CAUTION : force option is not recomended in normal case. because it assumes any allocated chunk will not
-	 *             be referenced and after this operation any allocated pointer can become dangled.
-	 *             force option is intended to be used only at thread cleanup stage instead of normal operation.
-	 *
-	 *   basic stratedgy is push purgeable node down so that it can be easily removed from the tree
-	 *      node (base_size == size)  -> purgeable  (p)
-	 *      node (base_size != size)  -> non purgeable (np)
-	 *      node (purgeable && (node->left == (purgeable or null)) && (node->right == (purgeable or null)))  -> removable
-	 *   by rotating subtree(s) following below rules, purgeable node can be removable node.
-	 *
-	 *
-	 *   case i.
-	 *          p(p)                               r(np)
-	 *         /   \      -- rotate left -->       /   \
-	 *      l(p) r(np)                          p(p)    rr
-	 *            /  \                          /  \
-	 *          rl    rr                      l(p) rl
-	 *
-	 *   case ii.
-	 *          p(p)                               l(np)
-	 *         /   \      -- rotate right -->      /   \
-	 *      l(np)  r(p)                           ll   p(p)
-	 *       /  \                                      /  \
-	 *     ll   lr                                    lr  r(p)
-	 *
-	 *   case iii.
-	 *          p(p)                               r(np)                                    r(np)
-	 *         /   \      -- rotate left -->       /   \    -- rotate right (pivot p) -->   /   \
-	 *     l(np)   r(np)                        p(p)    rr                               l(np)   rr
-	 *      /  \    /  \                        /  \                                      /  \
-	 *    ll   lr  rl   rr                   l(np) rl                                    ll  p(p)
-	 *                                       /  \                                            /  \
-	 *                                      ll  lr                                          lr  rl
-	 *
-	 *   case iv.
-	 *            p(p or np)                       p(p or np)
-	 *           /   \     -- purge child -->      /    \
-	 *  [l(p) or 0]  [r(p) or 0]                  0      0
-	 *
-	 */
 	if(!node)
 		return NULL;
-	if(node->left)
-	{
-		node->left = purge_rc(node->left, callback, force);
-		node = merge_left(node);
-	}
 	if(node->right)
 	{
-		node->right = purge_rc(node->right, callback, force);
+		node->right = purge_rc(node->right, callback);
+		node = merge_right(node);
+		node = merge_left(node);
+	}
+	if(node->left)
+	{
+		node->left = purge_rc(node->left, callback);
+		node = merge_left(node);
 		node = merge_right(node);
 	}
-	if(!node->base_size && !node->size)
+	if(!node->size)
 	{
 		if(node->left)
 		{
@@ -416,26 +481,28 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL fo
 			return NULL;
 		}
 	}
-	if((node->size == node->base_size) || force)
+	if(node->size == node->base_size)
 	{
 		if(node->left && (node->left->base_size != node->left->size))
 		{
 			node = rotate_right(node);
-			node->right = purge_rc(node->right, callback, force);
+			node->right = purge_rc(node->right, callback);
 		}
 		else if(node->right && (node->right->base_size != node->right->size))
 		{
 			node = rotate_left(node);
-			node->left = purge_rc(node->left, callback, force);
+			node->left = purge_rc(node->left, callback);
 		}
 		else if(!node->left && !node->right)
 		{
-			callback(node);
+			if(node->base_size == node->size)
+				callback(node);
 			return NULL;
 		}
 	}
 	return node;
 }
+
 
 
 static size_t size_rc(nwtreeNode_t* node)

@@ -23,8 +23,9 @@
 static pthread_key_t cache_key;
 typedef struct {
 	nwtreeRoot_t    root;
-	size_t          total_sz;
-	size_t          free_sz;
+	size_t          base_sz;        // size of base segment in which cache header itself is contained
+	size_t          total_sz;       // size of total cache
+	size_t          free_sz;        // size of free cache
 } nwt_cache_t;
 
 struct chunk_header {
@@ -159,8 +160,6 @@ uint32_t nwt_level()
 	return nwtree_level(&cache->root);
 }
 
-
-
 void nwt_free(void* chnk)
 {
 	if(!chnk)
@@ -210,23 +209,21 @@ static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz)
 {
 	size_t seg_sz = SEGMENT_SIZE;
 	while(seg_sz < init_sz) seg_sz <<= 1;		// grow seg_sz unless it is greater than requested size
-	size_t cache_hdr_offset = seg_sz - sizeof(nwt_cache_t);
 	uint8_t* chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 	if(!chnk)
 	{
 		fprintf(stderr, "System memory depleted!\n");
 		exit(-1);
 	}
-	nwt_cache_t* cache = (nwt_cache_t*) &chnk[cache_hdr_offset];
-	cache->free_sz = cache_hdr_offset;
-	cache->total_sz = cache_hdr_offset;
+	nwt_cache_t* cache = (nwt_cache_t*) chnk;
+	cache->base_sz = seg_sz;
+	cache->free_sz = cache->total_sz = seg_sz - sizeof(nwt_cache_t);
+	nwtreeNode_t* seg_node = (nwtreeNode_t*) &cache[1];
 	nwtree_rootInit(&cache->root);
-	nwtree_nodeInit((nwtreeNode_t*) chnk, chnk, cache_hdr_offset);
-	nwtree_addNode(&cache->root, (nwtreeNode_t*) chnk);
+	nwtree_nodeInit((nwtreeNode_t*) seg_node, seg_node, cache->free_sz);
+	nwtree_addNode(&cache->root, seg_node);
 	return cache;
 }
-
-
 
 static void nwt_cache_dstr(void* cache)
 {
@@ -234,12 +231,12 @@ static void nwt_cache_dstr(void* cache)
 		return;
 	nwt_cache_t* cachep = (nwt_cache_t*) cache;
 	nwtree_purge(&cachep->root, onpurge);
+	munmap(cachep, cachep->base_sz);
 }
-
-
 
 static DECLARE_PURGE_CALLBACK(onpurge)
 {
+	printf("freed up : %u\n",node->base_size);
 	munmap(node->base,node->base_size);
 	return TRUE;
 }

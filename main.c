@@ -19,7 +19,7 @@
 #include "nwtree.h"
 
 #define LOOP_CNT     20
-#define TEST_CNT     100000
+#define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
 #define TH_CNT       20
 
@@ -75,6 +75,7 @@ int main(void){
 	}
 	else if(pid == 0) {
 		nwt_init();
+		perf_test_nmalloc();
 		perf_test_nmalloc();
 	}
 	else
@@ -231,7 +232,6 @@ static void* ymalloc_test(void* arg)
 	end = clock();
 	report->malloc_time = (double) (end - start) / CLOCKS_PER_SEC;
 //	printf("malloc finished %f!!\n", report->malloc_time);
-
 	start = clock();
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
@@ -265,7 +265,6 @@ static void* ymalloc_test(void* arg)
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
-
 
 	start = clock();
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
