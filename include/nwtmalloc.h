@@ -10,6 +10,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,6 +23,7 @@ extern void nwt_stats();
 extern void* nwt_realloc(void* chnk, size_t sz);
 extern void* nwt_calloc(size_t sz);
 extern void nwt_print();
+extern uint32_t nwt_level();
 extern void nwt_free(void* chnk);
 
 extern void nwt_purgeCache();

@@ -148,6 +148,18 @@ extern void nwt_print()
 	nwtree_print(&cache->root);
 }
 
+uint32_t nwt_level()
+{
+	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if(!cache)
+	{
+		fprintf(stderr, "Heap uninitialized\n");
+		exit(-1);
+	}
+	return nwtree_level(&cache->root);
+}
+
+
 
 void nwt_free(void* chnk)
 {

@@ -20,6 +20,7 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback,BOOL for
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
 static size_t count_rc(nwtreeNode_t* node);
+static uint32_t level_rc(nwtreeNode_t* node);
 static nwtreeNode_t* rotate_left(nwtreeNode_t* parent);
 static nwtreeNode_t* rotate_right(nwtreeNode_t* parent);
 static nwtreeNode_t* resolve_left(nwtreeNode_t* parent);
@@ -51,6 +52,7 @@ void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz)
 	node->left = node->right = NULL;
 	node->base = addr;
 	node->size = sz;
+	node->base_size = 0;
 }
 
 void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz)
@@ -82,6 +84,14 @@ size_t nwtree_totalSize(nwtreeRoot_t* root)
 		return 0;
 	return size_rc(root->entry);
 }
+
+uint32_t nwtree_level(nwtreeRoot_t* root)
+{
+	if(!root)
+		return 0;
+	return level_rc(root->entry);
+}
+
 
 size_t nwtree_nodeCount(nwtreeRoot_t* root)
 {
@@ -123,13 +133,23 @@ void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz)
 	return chunk;
 }
 
+
 void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz)
 {
+	/*
+	 *  grow provides way to increase chunk without copy when contiguous memory is available.
+	 *  otherwise, it will return new avaiable chunk. caller should compare return value to
+	 *  check whether it is unchanged or not. if it has been changed new chunk caller has to
+	 *  copy if it's required.
+	 */
 	if(!root || (nsz <= 0))
 		return NULL;
 	if(!root->entry)
 		return NULL;
-	root->entry = grows_node(root->entry, &node, nsz);
+	root->entry = grows_node(root->entry, node, nsz);
+	if(node)
+		return node;
+	return nwtree_reclaim_chunk(root, nsz);
 }
 
 
@@ -323,15 +343,16 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item)
 
 static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,uint32_t nsz)
 {
-	/*
-	 *
-	 */
 }
 
 
 static nwtreeNode_t* purge_rc(nwtreeNode_t* node, purge_func_t callback, BOOL force)
 {
 	/**
+	 *   CAUTION : force option is not recomended in normal case. because it assumes any allocated chunk will not
+	 *             be referenced and after this operation any allocated pointer can become dangled.
+	 *             force option is intended to be used only at thread cleanup stage instead of normal operation.
+	 *
 	 *   basic stratedgy is push purgeable node down so that it can be easily removed from the tree
 	 *      node (base_size == size)  -> purgeable  (p)
 	 *      node (base_size != size)  -> non purgeable (np)
@@ -454,4 +475,12 @@ static size_t count_rc(nwtreeNode_t* node)
 	return 0;
 }
 
+static uint32_t level_rc(nwtreeNode_t* node)
+{
+	if(!node)
+		return 0;
+	uint32_t l,r = level_rc(node->right) + 1;
+	l = level_rc(node->left) + 1;
+	return r > l?  r : l;
+}
 

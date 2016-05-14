@@ -60,6 +60,7 @@ extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node);
 extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz);
 extern void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz);
 extern void nwtree_print(nwtreeRoot_t* root);
+extern uint32_t nwtree_level(nwtreeRoot_t* root);
 extern size_t nwtree_nodeCount(nwtreeRoot_t* root);
 extern size_t nwtree_totalSize(nwtreeRoot_t* root);
 extern size_t nwtree_freeSize(nwtreeRoot_t* root);

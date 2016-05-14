@@ -18,9 +18,10 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
+#define LOOP_CNT     20
 #define TEST_CNT     100000
-#define MAX_REQ_SIZE 2048
-#define TH_CNT       50
+#define MAX_REQ_SIZE 4096
+#define TH_CNT       20
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -55,7 +56,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -134,7 +134,7 @@ static void* malloc_test(void* arg)
 
 	int loop_cnt;
 	start = clock();
-	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = malloc(sizeof(person_t));
@@ -157,7 +157,7 @@ static void* malloc_test(void* arg)
 
 
 	start = clock();
-	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			rn = rand() % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
 			p = malloc(rn);
@@ -246,7 +246,7 @@ static void* ymalloc_test(void* arg)
 
 	int loop_cnt;
 	start = clock();
-	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = nwt_malloc(sizeof(person_t));
 			p->age = cnt;
@@ -262,14 +262,13 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
-//		nwt_print();
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
 
 
 	start = clock();
-	for(loop_cnt = 0;loop_cnt < 20; loop_cnt++) {
+	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			rn = rand() % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
 			p = nwt_malloc(rn);
@@ -285,7 +284,6 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
-//		nwt_print();
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
