@@ -8,6 +8,7 @@
 
 #include "nwtmalloc.h"
 #include "nwtree.h"
+#include "cdsl_slist.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -26,12 +27,19 @@ typedef struct {
 	size_t          base_sz;        // size of base segment in which cache header itself is contained
 	size_t          total_sz;       // size of total cache
 	size_t          free_sz;        // size of free cache
+	slistEntry_t    cleanup_list;
+	int test_cnt;
 } nwt_cache_t;
 
 struct chunk_header {
 	size_t prev_sz;
 	size_t cur_sz;
 };
+
+typedef struct {
+	nwtreeNode_t node;
+	slistNode_t  lhead;
+} cleanup_list_t;
 
 static void nwt_cache_dstr(void* cache);
 static DECLARE_PURGE_CALLBACK(onpurge);
@@ -189,7 +197,7 @@ void nwt_purgeCache()
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	nwtree_purge(&cache->root,onpurge);
+	nwtree_purge(&cache->root,onpurge,NULL);
 }
 
 void nwt_purgeCacheForce()
@@ -222,6 +230,8 @@ static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz)
 	nwtree_rootInit(&cache->root);
 	nwtree_nodeInit((nwtreeNode_t*) seg_node, seg_node, cache->free_sz);
 	nwtree_addNode(&cache->root, seg_node);
+	cdsl_slistEntryInit(&cache->cleanup_list);
+	cache->test_cnt = 0;
 	return cache;
 }
 
@@ -230,13 +240,25 @@ static void nwt_cache_dstr(void* cache)
 	if(!cache)
 		return;
 	nwt_cache_t* cachep = (nwt_cache_t*) cache;
-	nwtree_purge(&cachep->root, onpurge);
+	cleanup_list_t* lh;
+	nwtree_iterBaseNode(&cachep->root, onpurge, cachep);
+	while(!cdsl_slistIsEmpty(&cachep->cleanup_list))
+	{
+		lh = (cleanup_list_t*) cdsl_slistDequeue(&cachep->cleanup_list);
+		if(!lh)
+			exit(-1);
+		lh = container_of(lh, cleanup_list_t, lhead);
+		munmap((void*) lh, lh->node.base_size);
+	}
 	munmap(cachep, cachep->base_sz);
 }
 
 static DECLARE_PURGE_CALLBACK(onpurge)
 {
-	printf("freed up : %u\n",node->base_size);
-	munmap(node->base,node->base_size);
+	nwt_cache_t* cache = (nwt_cache_t*) arg;
+	cleanup_list_t* clhead = (cleanup_list_t*) node;
+	cache->test_cnt++;
+	cdsl_slistNodeInit(&clhead->lhead);
+	cdsl_slistPutHead(&cache->cleanup_list, &clhead->lhead);
 	return TRUE;
 }

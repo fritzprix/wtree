@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <jemalloc/jemalloc.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -56,6 +57,7 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+	basic_poc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -102,7 +104,7 @@ static void* malloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % MAX_REQ_SIZE);
+		rn = (rand() % (1 << 20));
 		p = malloc(rn);
 		free(p);
 	}
@@ -213,7 +215,7 @@ static void* ymalloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % MAX_REQ_SIZE);
+		rn = (rand() % (1 << 20));
 		p = nwt_malloc(rn);
 		nwt_free(p);
 	}
@@ -274,7 +276,7 @@ static void* ymalloc_test(void* arg)
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
-
+//		printf("depth of malloc tree : %d\n",nwt_level());
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
 			if(!p)
@@ -283,6 +285,7 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
+//		printf("depth of malloc tree : %d\n",nwt_level());
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
@@ -353,7 +356,7 @@ static void basic_poc(void)
 		fsz = nwtree_freeSize(&root);
 		printf("After free operation Free size : %zu\n",fsz);
 	}
-	nwtree_purge(&root, onpurge);
+	nwtree_purge(&root, onpurge, NULL);
 	tsz = nwtree_totalSize(&root);
 	fsz = nwtree_freeSize(&root);
 	printf("===========  purge operation ================\n");
@@ -388,7 +391,7 @@ static void basic_poc(void)
 		printf("Total Size : %zu & free size : %zu\n",tsz,fsz);
 		cdsl_nrbtreeInsert(&rbroot,trnode);
 	}
-	nwtree_purge(&root, onpurge);
+	nwtree_purge(&root, onpurge,NULL);
 	tsz = nwtree_totalSize(&root);
 	fsz = nwtree_freeSize(&root);
 	printf("===========  purge operation ================\n");
@@ -430,7 +433,6 @@ static void basic_poc(void)
 	tsz = nwtree_totalSize(&root);
 	fsz = nwtree_freeSize(&root);
 	printf("Total Size : %zu & free size : %zu\n",tsz,fsz);
-	nwtree_purgeAll(&root,onpurge);
 	tsz = nwtree_totalSize(&root);
 	fsz = nwtree_freeSize(&root);
 	printf("After PurgeForce Total Size : %zu & free size : %zu\n",tsz,fsz);
@@ -440,10 +442,10 @@ static void print_report(const char* test_name, struct test_report* report)
 {
 	printf("\n==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total malloc free repeatition time : %f\n",report->repeat_malloc_free_time);
-	printf("total malloc free deep repeatition time /w fixed size : %f\n", report->repeat_deep_malloc_free_time_fix_size);
-	printf("total malloc free deep repeatition time /w random size : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
 	printf("total malloc time : %f\n",report->malloc_time);
 	printf("total free time : %f\n", report->free_time);
+	printf("total malloc free deep repeatition time /w fixed size : %f\n", report->repeat_deep_malloc_free_time_fix_size);
+	printf("total malloc free deep repeatition time /w random size : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
 	printf("total realloc time : %f\n", report->realloc_time);
 	printf("==== END OF TEST REPORT[%s] ====\n", test_name);
 

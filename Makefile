@@ -8,8 +8,12 @@ PYTHON=python
 PIP=pip
 MKDIR=mkdir
 
+LINK_OPT = -rpath,/usr/local/lib 
+
+
 DBG_CFLAG = -O0 -g3 -fmessage-length=0   -D__DBG
 REL_CFLAG = -O2 -g0 -fmessage-length=0
+LDFLAG=$(LINK_OPT:%=-Wl,%)
 DYNAMIC_FLAG = -fPIC
 
 
@@ -33,8 +37,8 @@ REL_DYNAMIC_TARGET=libym.so
 
 VPATH=$(SRC-y)
 INCS=$(INC-y:%=-I%)
-LIB_DIR=$(LDIR-y:%=-L%)
-LIBS=$(SLIB-y:%=-l:%) -lpthread
+LIB_DIR=$(LDIR-y:%=-L%) -L/usr/local/lib 
+LIBS=$(SLIB-y:%=-l:%) -lpthread -ljemalloc
 
 DBG_OBJS=$(OBJ-y:%=$(DBG_CACHE_DIR)/%.do)
 REL_OBJS=$(OBJ-y:%=$(REL_CACHE_DIR)/%.o)
@@ -79,7 +83,7 @@ $(DBG_STATIC_TARGET) : $(DBG_OBJS)
 	
 $(DBG_DYNAMIC_TARGET) : $(DBG_SH_OBJS)
 	@echo 'Generating Share Library File .... $@'
-	$(CC) -o $@ -shared $(DBG_CFLAG) $(DYNAMIC_FLAG) $(DBG_SH_OBJS)
+	$(CC) -o $@ -shared $(DBG_CFLAG) $(DYNAMIC_FLAG)  $(DBG_SH_OBJS)
 
 $(REL_STATIC_TARGET) : $(REL_OBJS)
 	@echo 'Generating Archive File ....$@'
@@ -91,12 +95,12 @@ $(REL_DYNAMIC_TARGET) : $(REL_SH_OBJS)
 	
 $(TEST_TARGET) : $(REL_CACHE_DIR)/main.o $(REL_OBJS) 
 	@echo 'Building unit-test executable... $@'
-	$(CC) -o $@ $(REL_CFLAG) $< $(REL_OBJS) $(LIB_DIR) $(LIBS)
+	$(CC) -o $@ $(REL_CFLAG) $< $(REL_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
 	
 
 $(DEV_TEST_TARGET) : $(DBG_CACHE_DIR)/main.do $(DBG_OBJS) 
 	@echo 'Building unit-test executable... $@'
-	$(CC) -o $@ $(DBG_CFLAG) $< $(DBG_OBJS) $(LIB_DIR) $(LIBS)
+	$(CC) -o $@ $(DBG_CFLAG) $< $(DBG_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
 	
 $(DBG_CACHE_DIR)/%.do : %.c
 	@echo 'compile...$@'

@@ -13,7 +13,7 @@
 
 #include "cdsl_slist.h"
 
-#define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node)
+#define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
 
@@ -47,14 +47,15 @@ typedef struct  {
  *
  */
 
-typedef BOOL (*purge_func_t) (nwtreeNode_t* node);
+typedef BOOL (*nwt_callback_t) (nwtreeNode_t* node,void* arg);
 
 
 
 extern void nwtree_rootInit(nwtreeRoot_t* root);
 extern void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
 extern void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
-extern void nwtree_purge(nwtreeRoot_t* root, purge_func_t callback);
+extern void nwtree_purge(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
+extern void nwtree_iterBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
 extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node);
 extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz);
 extern void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz);
