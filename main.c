@@ -78,7 +78,6 @@ int main(void){
 	else if(pid == 0) {
 		nwt_init();
 		perf_test_nmalloc();
-		perf_test_nmalloc();
 	}
 	else
 	{
@@ -440,14 +439,18 @@ static void basic_poc(void)
 
 static void print_report(const char* test_name, struct test_report* report)
 {
-	printf("\n==== START OF TEST REPORT[%s] ====\n", test_name);
-	printf("total malloc free repeatition time : %f\n",report->repeat_malloc_free_time);
-	printf("total malloc time : %f\n",report->malloc_time);
-	printf("total free time : %f\n", report->free_time);
-	printf("total malloc free deep repeatition time /w fixed size : %f\n", report->repeat_deep_malloc_free_time_fix_size);
-	printf("total malloc free deep repeatition time /w random size : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
+	printf("\n==== TEST CONDITION for [%s] ====\n", test_name);
+	printf("LOOP Count : %d\n",LOOP_CNT);
+	printf("TEST SIZE : %d\n", TEST_SIZE);
+	printf("REQ Size VARIANCE %d\n", MAX_REQ_SIZE);
+	printf("==== START OF TEST REPORT[%s] ====\n", test_name);
+	printf("total time taken for repeated malloc & free of random size : %f\n",report->repeat_malloc_free_time);
+	printf("total time taken for consecutive malloc of fixed size chunk  : %f\n",report->malloc_time);
+	printf("total time taken for consecutive free of fixed size chunk : %f\n", report->free_time);
+	printf("total time taken for looping of each consecutive mallocs & frees of fixed sized chunk : %f\n", report->repeat_deep_malloc_free_time_fix_size);
+	printf("total time taken for looping of each consecutive mallocs & frees of random sized chunk : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
 	printf("total realloc time : %f\n", report->realloc_time);
-	printf("==== END OF TEST REPORT[%s] ====\n", test_name);
+	printf("==== END OF TEST REPORT[%s] ====\n\n", test_name);
 
 }
 
