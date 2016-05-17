@@ -19,7 +19,7 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define LOOP_CNT     40
+#define LOOP_CNT     60
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
 #define TH_CNT       30
@@ -287,6 +287,7 @@ static void* ymalloc_test(void* arg)
 //		nwt_purgeCache();
 	}
 	printf("depth of malloc tree : %d\n",nwt_level());
+//	nwt_print();
 
 	end = clock();
 	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
