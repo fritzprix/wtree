@@ -50,7 +50,6 @@ typedef struct  {
 typedef BOOL (*nwt_callback_t) (nwtreeNode_t* node,void* arg);
 
 
-
 extern void nwtree_rootInit(nwtreeRoot_t* root);
 extern void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
 extern void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);

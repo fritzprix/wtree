@@ -19,10 +19,10 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define LOOP_CNT     20
+#define LOOP_CNT     40
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
-#define TH_CNT       20
+#define TH_CNT       30
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -57,7 +57,7 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-	basic_poc();
+//	basic_poc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -77,6 +77,7 @@ int main(void){
 	}
 	else if(pid == 0) {
 		nwt_init();
+		perf_test_nmalloc();
 		perf_test_nmalloc();
 	}
 	else
@@ -175,7 +176,6 @@ static void* malloc_test(void* arg)
 			}
 			free(p);
 		}
-//		nwt_print();
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
@@ -284,8 +284,10 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
-//		printf("depth of malloc tree : %d\n",nwt_level());
+//		nwt_purgeCache();
 	}
+	printf("depth of malloc tree : %d\n",nwt_level());
+
 	end = clock();
 	report->repeat_deep_malloc_free_time_rnd_size = (double) (end - start) / CLOCKS_PER_SEC;
 
@@ -441,8 +443,9 @@ static void print_report(const char* test_name, struct test_report* report)
 {
 	printf("\n==== TEST CONDITION for [%s] ====\n", test_name);
 	printf("LOOP Count : %d\n",LOOP_CNT);
-	printf("TEST SIZE : %d\n", TEST_SIZE);
+	printf("TEST SIZE : %d\n", TEST_CNT);
 	printf("REQ Size VARIANCE %d\n", MAX_REQ_SIZE);
+	printf("# of Thread : %d\n",TH_CNT);
 	printf("==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total time taken for repeated malloc & free of random size : %f\n",report->repeat_malloc_free_time);
 	printf("total time taken for consecutive malloc of fixed size chunk  : %f\n",report->malloc_time);
