@@ -17,7 +17,7 @@
 #include <sys/mman.h>
 
 #ifndef SEGMENT_SIZE
-#define SEGMENT_SIZE            ((size_t) 1 << 20)
+#define SEGMENT_SIZE            ((size_t) 1 << 21)
 #endif
 
 static pthread_key_t cache_key;
@@ -44,6 +44,7 @@ static void nwt_cache_dstr(void* cache);
 static DECLARE_PURGE_CALLBACK(oncleanup);
 static DECLARE_PURGE_CALLBACK(onpurge);
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz);
+static __thread nwt_cache_t* ptcache = NULL;
 
 void nwt_init() {
 	pthread_key_create(&cache_key, nwt_cache_dstr);
@@ -63,31 +64,30 @@ void* nwt_malloc(size_t sz) {
 		return NULL;
 	if (sz < sizeof(nwtreeNode_t))
 		sz = sizeof(nwtreeNode_t);
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	sz += sizeof(struct chunk_header); // need additional size to put chunk header for keeping track of chunk size
 	size_t seg_sz = SEGMENT_SIZE;
 	uint8_t* chnk;
-	if (!cache) {
+	if (!ptcache) {
 		sz += sizeof(nwt_cache_t); // to bootstrap cache out of thin air, size of cache header should be considered
-		cache = nwt_cache_bootstrap(sz);
-		pthread_setspecific(cache_key, cache);
+		ptcache = nwt_cache_bootstrap(sz);
+		pthread_setspecific(cache_key, ptcache);
 	}
 
-	while (!(chnk = nwtree_reclaim_chunk(&cache->root, sz))) {
+	while (!(chnk = nwtree_reclaim_chunk(&ptcache->root, sz))) {
 		while (seg_sz < sz)
 			seg_sz <<= 1; // calc min seg size , which is multiple of SEGMENT_SIZE, larger than requested sz
-		chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ,
-				MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 		if (!chnk) {
 			perror("memory depleted\n");
 			exit(-1);
 		}
 		nwtree_baseNodeInit((nwtreeNode_t*) chnk, chnk, seg_sz);
-		nwtree_addNode(&cache->root, (nwtreeNode_t*) chnk);
-		cache->total_sz += seg_sz;
-		cache->free_sz += seg_sz;
+		nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chnk);
+		ptcache->total_sz += seg_sz;
+		ptcache->free_sz += seg_sz;
 	}
-	cache->free_sz -= sz;
+	ptcache->free_sz -= sz;
 	*((size_t*) chnk) = sz - sizeof(size_t); // set current chunk size before the usable memory area
 	*((size_t*) &chnk[sz - sizeof(size_t)]) = sz - sizeof(size_t); // set prev_chunk size at the prev_sz field in next chunk header
 	return &chnk[sizeof(size_t)];
@@ -98,8 +98,8 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		return NULL;
 	if (sz < sizeof(nwtreeNode_t))
 		sz = sizeof(nwtreeNode_t);
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
@@ -126,7 +126,7 @@ void* nwt_realloc(void* chnk, size_t sz) {
 	nchnk = nwt_malloc(sz);
 	memcpy(nchnk, chnk, *cur_sz);
 	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(size_t));
-	nwtree_addNode(&cache->root, (nwtreeNode_t*) cur_sz);
+	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) cur_sz);
 	return nchnk;
 }
 
@@ -139,28 +139,28 @@ void* nwt_calloc(size_t sz) {
 }
 
 extern void nwt_print() {
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	nwtree_print(&cache->root);
+	nwtree_print(&ptcache->root);
 }
 
 uint32_t nwt_level() {
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	return nwtree_level(&cache->root);
+	return nwtree_level(&ptcache->root);
 }
 
 void nwt_free(void* chnk) {
 	if (!chnk)
 		return;
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
@@ -171,29 +171,19 @@ void nwt_free(void* chnk) {
 		exit(-1);
 	}
 	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(size_t));
-	nwtree_addNode(&cache->root, (nwtreeNode_t*) chk);
-	cache->free_sz += (*chnk_sz + sizeof(size_t));
+	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk);
+	ptcache->free_sz += (*chnk_sz + sizeof(size_t));
 }
 
 void nwt_purgeCache() {
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
+//	nwt_cache_t* cache = pthread_getspecific(cache_key);
+	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	nwtree_purge(&cache->root, onpurge, cache);
+	nwtree_purge(&ptcache->root, onpurge, ptcache);
 }
 
-void nwt_purgeCacheForce() {
-	nwt_cache_t* cache = pthread_getspecific(cache_key);
-	if (!cache) {
-		fprintf(stderr, "Heap uninitialized\n");
-		exit(-1);
-	}
-	nwt_cache_dstr(cache);
-	cache = nwt_cache_bootstrap(SEGMENT_SIZE);
-	pthread_setspecific(cache_key, cache);
-}
 
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 	size_t seg_sz = SEGMENT_SIZE;

@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+
 extern void nwt_init();
 extern void nwt_exit();
 extern void* nwt_malloc(size_t sz);
@@ -25,9 +26,7 @@ extern void* nwt_calloc(size_t sz);
 extern void nwt_print();
 extern uint32_t nwt_level();
 extern void nwt_free(void* chnk);
-
 extern void nwt_purgeCache();
-extern void nwt_purgeCacheForce();
 
 
 #ifdef __cplusplus
