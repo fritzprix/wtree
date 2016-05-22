@@ -59,7 +59,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-//	basic_poc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
