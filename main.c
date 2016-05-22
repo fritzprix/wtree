@@ -19,10 +19,10 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define LOOP_CNT     60
+#define LOOP_CNT     80
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
-#define TH_CNT       30
+#define TH_CNT       16
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -33,6 +33,8 @@ typedef struct  {
 }person_t;
 
 struct test_report {
+	double rand_malloc_only_time;
+	double rand_free_only_time;
 	double repeat_malloc_free_time;
 	double malloc_time;
 	double free_time;
@@ -78,7 +80,7 @@ int main(void){
 	else if(pid == 0) {
 		nwt_init();
 		perf_test_nmalloc();
-		perf_test_nmalloc();
+
 	}
 	else
 	{
@@ -100,16 +102,27 @@ static void* malloc_test(void* arg)
 	cdsl_nrbtreeRootInit(&root);
 
 	clock_t start,end;
+	clock_t sub_start,sub_end;
 
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		rn = (rand() % (1 << 20));
+//		sub_start = clock();
 		p = malloc(rn);
+//		sub_end = clock();
+		report->rand_malloc_only_time +=  sub_end - sub_start;
+		p->age = cnt;
+		cdsl_nrbtreeNodeInit(&p->node,cnt);
+//		sub_start = clock();
 		free(p);
+//		sub_end = clock();
+		report->rand_free_only_time += sub_end - sub_start;
 	}
 	end = clock();
 	report->repeat_malloc_free_time = (double) (end - start) / CLOCKS_PER_SEC;
+	report->rand_free_only_time /= CLOCKS_PER_SEC;
+	report->rand_malloc_only_time /= CLOCKS_PER_SEC;
 //	printf("simple repeat malloc & free : %f\n",(double) (end - start) / CLOCKS_PER_SEC);
 
 	start = clock();
@@ -210,14 +223,25 @@ static void* ymalloc_test(void* arg)
 	cdsl_nrbtreeRootInit(&root);
 
 	clock_t start,end;
+	clock_t sub_start,sub_end;
 
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		rn = (rand() % (1 << 20));
+//		sub_start = clock();
 		p = nwt_malloc(rn);
+//		sub_end = clock();
+		report->rand_malloc_only_time +=  sub_end - sub_start;
+		p->age = cnt;
+		cdsl_nrbtreeNodeInit(&p->node,cnt);
+//		sub_start = clock();
 		nwt_free(p);
+//		sub_end = clock();
+		report->rand_free_only_time += sub_end - sub_start;
 	}
+	report->rand_malloc_only_time /= CLOCKS_PER_SEC;
+	report->rand_free_only_time /= CLOCKS_PER_SEC;
 	end = clock();
 	report->repeat_malloc_free_time = (double) (end - start) / CLOCKS_PER_SEC;
 
@@ -286,7 +310,7 @@ static void* ymalloc_test(void* arg)
 		}
 //		nwt_purgeCache();
 	}
-	printf("depth of malloc tree : %d\n",nwt_level());
+//	printf("depth of malloc tree : %d\n",nwt_level());
 //	nwt_print();
 
 	end = clock();
@@ -449,6 +473,8 @@ static void print_report(const char* test_name, struct test_report* report)
 	printf("# of Thread : %d\n",TH_CNT);
 	printf("==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total time taken for repeated malloc & free of random size : %f\n",report->repeat_malloc_free_time);
+	printf("total time taken for malloc in above loop %f\n", report->rand_malloc_only_time);
+	printf("total time taken for free in above loop %f\n", report->rand_free_only_time);
 	printf("total time taken for consecutive malloc of fixed size chunk  : %f\n",report->malloc_time);
 	printf("total time taken for consecutive free of fixed size chunk : %f\n", report->free_time);
 	printf("total time taken for looping of each consecutive mallocs & frees of fixed sized chunk : %f\n", report->repeat_deep_malloc_free_time_fix_size);
@@ -469,6 +495,8 @@ static void perf_test_nmalloc(void)
 		pthread_join(thrs[i], NULL);
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
+		rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
+		rpt.rand_free_only_time += reports[i].rand_free_only_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
 		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
 		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;
@@ -488,6 +516,8 @@ static void perf_test_oldmalloc(void)
 		pthread_join(thrs[i], NULL);
 		rpt.free_time += reports[i].free_time;
 		rpt.malloc_time += reports[i].malloc_time;
+		rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
+		rpt.rand_free_only_time += reports[i].rand_free_only_time;
 		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
 		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
 		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;

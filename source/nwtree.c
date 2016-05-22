@@ -22,6 +22,10 @@ static uint32_t level_rc(nwtreeNode_t* node);
 static nwtreeNode_t* rotate_left(nwtreeNode_t* parent);
 static nwtreeNode_t* rotate_right(nwtreeNode_t* parent);
 static nwtreeNode_t* resolve(nwtreeNode_t* parent);
+static nwtreeNode_t* merge_next(nwtreeNode_t* merger);
+static nwtreeNode_t* merge_prev(nwtreeNode_t* merger);
+static nwtreeNode_t* merge_from_leftend(nwtreeNode_t* left, nwtreeNode_t* merger);
+static nwtreeNode_t* merge_from_rightend(nwtreeNode_t* right,nwtreeNode_t* merger);
 static nwtreeNode_t* merge_left(nwtreeNode_t* parent);
 static nwtreeNode_t* merge_right(nwtreeNode_t* parent);
 static void print_rc(nwtreeNode_t* parent, int depth);
@@ -191,23 +195,23 @@ static nwtreeNode_t* resolve(nwtreeNode_t* parent) {
 		if (parent->right->size > parent->left->size) {
 			parent = rotate_left(parent);
 			parent->left = resolve(parent->left);
-			parent = merge_left(parent);
+			parent = merge_prev(parent);
 		} else {
 			parent = rotate_right(parent);
 			parent->right = resolve(parent->right);
-			parent = merge_right(parent);
+			parent = merge_next(parent);
 		}
 	} else if (parent->right) {
 		if (parent->right->size > parent->size) {
 			parent = rotate_left(parent);
 			parent->left = resolve(parent->left);
-			parent = merge_left(parent);
+			parent = merge_prev(parent);
 		}
 	} else if (parent->left) {
 		if (parent->left->size > parent->size) {
 			parent = rotate_right(parent);
 			parent->right = resolve(parent->right);
-			parent = merge_right(parent);
+			parent = merge_next(parent);
 		}
 	} else {
 		if (!parent->size && !parent->base_size){
@@ -215,6 +219,93 @@ static nwtreeNode_t* resolve(nwtreeNode_t* parent) {
 		}
 	}
 	return parent;
+}
+
+static nwtreeNode_t* merge_next(nwtreeNode_t* merger) {
+	/*
+	 *    merger                merger                   merger            merger
+	 *        \                     \                       \                 \
+	 *         r (nm)     -->        r (nm)     ->           r (nm)   ->      r (nm)  -> stop
+	 *        /                     /                       /                 /
+	 *      rl (nm)               rl (nm)                 rl (m)            rlr (nm)
+	 *      /                     /                       /  \              /  \
+	 *    rll (m)               rllr (m)           rllrr(nm)  rlr        rl(0)  rlrr
+	 *    / \                  /    \
+	 *   0  rllr              0    rllrr
+	 */
+	if(!merger)
+		return NULL;
+	if(!merger->right)
+		return merger;
+	merger->right = merge_next(merger->right);
+	merger->right = merge_from_leftend(merger->right, merger);
+	return merger;
+}
+
+static nwtreeNode_t* merge_prev(nwtreeNode_t* merger) {
+	if(!merger)
+		return NULL;
+	if(!merger->left)
+		return merger;
+	merger->left = merge_prev(merger->left);
+	merger->left = merge_from_rightend(merger->left, merger);
+	nwtreeNode_t* node = (nwtreeNode_t*) merger->base;
+	node->base = merger->base;
+	node->base_size = merger->base_size;
+	node->size = merger->size;
+	node->left = merger->left;
+	node->right = merger->right;
+	return node;
+}
+
+static nwtreeNode_t* merge_from_leftend(nwtreeNode_t* left, nwtreeNode_t* merger) {
+	if(!left)
+		return NULL;
+	left->left = merge_from_leftend(left->left, merger);
+	if(left->left)
+		return left;
+	while((merger->base + merger->size) == left->base) {
+		if(merger->base_size)
+			merger->base_size += left->base_size;
+		else if(left->base_size)
+			return left;
+		merger->size += left->size;
+		if(!left->right)
+			return NULL;
+		left = left->right;
+	}
+	return left;
+}
+
+static nwtreeNode_t* merge_from_rightend(nwtreeNode_t* right,nwtreeNode_t* merger) {
+	/*
+	 *          merger                   merger                merger            merger
+	 *           /  \                     /  \                 /   \              /  \
+	 *        l(nm)             -->    l(nm)           -->  lrl(m)       -->   lrl(m)
+	 *         / \                      / \                 /  \                /  \
+	 *       ll  lr(nm)               ll  lrl(m)        l(nm)   0            l(nm)
+	 *             \                      /  \              \
+	 *             lrl(m)             lr(nm)  0           lr'(nm)
+	 *               \
+	 *                0
+	 */
+	if(!right)
+		return NULL;
+	right->right = merge_from_rightend(right->right, merger);
+	if(right->right)
+		return right;
+	while((right->base + right->size) == merger->base) {
+		if(right->base_size)
+			merger->base_size += right->base_size;
+		else if(merger->base_size)
+			return right;
+		merger->size += right->size;
+		merger->base = right->base;
+		if(!right->left)
+			return NULL;
+		right = right->left;
+	}
+	return right;
 }
 
 static nwtreeNode_t* merge_left(nwtreeNode_t* merger) {
@@ -290,10 +381,8 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 			parent->size += item->size;
 		}else {
 			parent->right = insert_rc(parent->right, item);
-			parent = merge_right(parent);
-			if (parent->right && (parent->right->size > parent->size)) {
-				parent = rotate_left(parent);
-			}
+			parent = merge_next(parent);
+			parent = resolve(parent);
 		}
 		return parent;
 	} else {
@@ -306,10 +395,8 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 			parent = item;
 		} else {
 			parent->left = insert_rc(parent->left, item);
-			parent = merge_left(parent);
-			if (parent->left && (parent->left->size > parent->size)) {
-				parent = rotate_right(parent);
-			}
+			parent = merge_prev(parent);
+			parent = resolve(parent);
 		}
 		return parent;
 	}
