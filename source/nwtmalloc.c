@@ -73,7 +73,6 @@ void* nwt_malloc(size_t sz) {
 		ptcache = nwt_cache_bootstrap(sz);
 		pthread_setspecific(cache_key, ptcache);
 	}
-
 	while (!(chnk = nwtree_reclaim_chunk(&ptcache->root, sz))) {
 		while (seg_sz < sz)
 			seg_sz <<= 1; // calc min seg size , which is multiple of SEGMENT_SIZE, larger than requested sz
@@ -170,9 +169,9 @@ void nwt_free(void* chnk) {
 		fprintf(stderr, "Heap corrupted\n");
 		exit(-1);
 	}
+	ptcache->free_sz += (*chnk_sz + sizeof(size_t));
 	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(size_t));
 	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk);
-	ptcache->free_sz += (*chnk_sz + sizeof(size_t));
 }
 
 void nwt_purgeCache() {
@@ -239,21 +238,19 @@ static DECLARE_PURGE_CALLBACK(oncleanup) {
 }
 
 static DECLARE_PURGE_CALLBACK(onpurge) {
-	nwt_cache_t* cache = (nwt_cache_t*) arg;
-	if (!node->left && !node->right) {
-		cache->total_sz -= node->base_size;
-		cache->free_sz -= node->size;
-		printf("cleanup : %u\n",node->base_size);
-		munmap(node->base, node->base_size);
-		return FALSE;
-	}
-	if ((node->base_size >> 1) >= 512) {
+	nwt_cache_t* cache = ptcache;
+	cache->total_sz -= node->base_size;
+	cache->free_sz -= node->size;
+	printf("cleanup node : (base_size : %u / size : %u / base : %lu)\n",node->base_size,node->size,(size_t) node->base);
+	printf("current heap : (total size : %lu / free size : %lu)\n",cache->total_sz,cache->free_sz);
+	munmap(node->base, node->base_size);
+	return TRUE;
+/*	if ((node->base_size >> 1) >= 512) {
 		node->base_size >>= 1;
 		node->size >>= 1;
 		cache->total_sz -= node->base_size;
 		cache->free_sz -= node->size;
 		munmap(node->base + node->base_size, node->base_size);
-	}
-	return TRUE;
+	}*/
 }
 

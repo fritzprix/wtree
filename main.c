@@ -19,7 +19,7 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define LOOP_CNT     80
+#define LOOP_CNT     60
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
 #define TH_CNT       16
@@ -43,6 +43,8 @@ struct test_report {
 	double repeat_deep_malloc_free_time_rnd_size;
 };
 
+const char* LOGFILE_NAME_FORMAT = "log_%s_%u";
+
 static void* malloc_test(void* );
 static void* ymalloc_test(void* );
 static void basic_poc(void);
@@ -59,6 +61,7 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -79,13 +82,13 @@ int main(void){
 	else if(pid == 0) {
 		nwt_init();
 		perf_test_nmalloc();
-
 	}
 	else
 	{
 		perror("fork fail\n");
 		exit(-1);
 	}
+
 	return 0;
 }
 
@@ -99,14 +102,18 @@ static void* malloc_test(void* arg)
 	struct test_report* report = (struct test_report*) arg;
 	nrbtreeRoot_t root;
 	cdsl_nrbtreeRootInit(&root);
-
+	/*
+	pid_t pid = pthread_self();
+	char filename[100];
+	sprintf(filename, LOGFILE_NAME_FORMAT,"jemalloc",pid);
+	freopen(filename,"w+",stdout);*/
 	clock_t start,end;
 	clock_t sub_start,sub_end;
 
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % (1 << 20));
+		rn = (rand() % (1 << 20)) + 2;
 //		sub_start = clock();
 		p = malloc(rn);
 //		sub_end = clock();
@@ -220,6 +227,11 @@ static void* ymalloc_test(void* arg)
 	struct test_report* report = (struct test_report*) arg;
 	nrbtreeRoot_t root;
 	cdsl_nrbtreeRootInit(&root);
+	/*
+	pid_t pid = pthread_self();
+	char filename[100];
+	sprintf(filename, LOGFILE_NAME_FORMAT,"wtmalloc",pid);
+	FILE *log_file = fopen(filename,"w+");*/
 
 	clock_t start,end;
 	clock_t sub_start,sub_end;
@@ -227,7 +239,7 @@ static void* ymalloc_test(void* arg)
 	start = clock();
 	int rn;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand() % (1 << 20));
+		rn = (rand() % (1 << 20)) + 2;
 //		sub_start = clock();
 		p = nwt_malloc(rn);
 //		sub_end = clock();
@@ -245,6 +257,7 @@ static void* ymalloc_test(void* arg)
 	report->repeat_malloc_free_time = (double) (end - start) / CLOCKS_PER_SEC;
 
 //	printf("simple repeat malloc & free : %f\n",(double) (end - start) / CLOCKS_PER_SEC);
+
 
 	start = clock();
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
@@ -307,7 +320,13 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
+//		printf("before purge\n");
+//		nwt_print();
 //		nwt_purgeCache();
+//		printf("after purge\n");
+//		nwt_print();
+//		printf("\n\n\n");
+
 	}
 //	printf("depth of malloc tree : %d\n",nwt_level());
 //	nwt_print();

@@ -221,13 +221,13 @@ static nwtreeNode_t* resolve(nwtreeNode_t* parent) {
 
 static nwtreeNode_t* merge_next(nwtreeNode_t* merger) {
 	/*
-	 *    merger                merger                   merger            merger
-	 *        \                     \                       \                 \
-	 *         r (nm)     -->        r (nm)     ->           r (nm)   ->      r (nm)  -> stop
-	 *        /                     /                       /                 /
-	 *      rl (nm)               rl (nm)                 rl (m)            rlr (nm)
-	 *      /                     /                       /  \              /  \
-	 *    rll (m)               rllr (m)           rllrr(nm)  rlr        rl(0)  rlrr
+	 *    merger                merger                   merger
+	 *        \                     \                       \
+	 *         r (nm)     -->        r (nm)     ->           r (nm)   ->    stop
+	 *        /                     /                       /
+	 *      rl (nm)               rl (nm)                 rl (m)
+	 *      /                     /                       /  \
+	 *    rll (m)               rllr (m)           rllrr(nm)  rlr
 	 *    / \                  /    \
 	 *   0  rllr              0    rllrr
 	 */
@@ -277,15 +277,15 @@ static nwtreeNode_t* merge_from_leftend(nwtreeNode_t* left, nwtreeNode_t* merger
 
 static nwtreeNode_t* merge_from_rightend(nwtreeNode_t* right,nwtreeNode_t* merger) {
 	/*
-	 *          merger                   merger                merger            merger
-	 *           /  \                     /  \                 /   \              /  \
-	 *        l(nm)             -->    l(nm)           -->  lrl(m)       -->   lrl(m)
-	 *         / \                      / \                 /  \                /  \
-	 *       ll  lr(nm)               ll  lrl(m)        l(nm)   0            l(nm)
-	 *             \                      /  \              \
-	 *             lrl(m)             lr(nm)  0           lr'(nm)
-	 *               \
-	 *                0
+	 *          merger                   merger                merger
+	 *           /  \                     /  \                 /   \
+	 *        l(nm)             -->    l(nm)           -->  l(nm)       -->  stop
+	 *         / \                      / \                 /  \
+	 *       ll  lr(nm)               ll  lr(nm)           ll  lr(nm)
+	 *             \                      /  \                 /  \
+	 *             lrl(m)                   lrll(m)               lrlll(nm)
+	 *            /  \                       /  \
+	 *          lrll  0               lrlll(nm)  0
 	 */
 	if(!right)
 		return NULL;
@@ -338,12 +338,17 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 	}
 }
 
-static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown,
-		uint32_t nsz) {
+static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz) {
 	if (!parent)
 		return NULL;
 	if (parent->size == 0)
 		return NULL;
+	if((*grown)->base > (parent->base + parent->base_size)) {
+		parent->right = grows_node(parent->right, grown, nsz);
+	} else if((*grown)->base < parent->base) {
+		parent->left = grows_node(parent->left, grown, nsz);
+	} else {
+	}
 	return NULL;
 }
 
@@ -393,27 +398,32 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, nwt_callback_t callback,
 		void* arg) {
 	if (!node)
 		return NULL;
-	if (node->right) {
-		node->right = purge_rc(node->right, callback, arg);
-		node = merge_next(node);
-	}
-	if (node->left) {
-		node->left = purge_rc(node->left, callback, arg);
-		node = merge_prev(node);
-	}
-	if (node->size == node->base_size) {
-		if (node->left && (node->left->base_size != node->left->size)) {
-			node = rotate_next(node);
-			node->right = purge_rc(node->right, callback, arg);
-		} else if (node->right
-				&& (node->right->base_size != node->right->size)) {
-			node = rotate_prev(node);
-			node->left = purge_rc(node->left, callback, arg);
-		} else if (!node->left && !node->right) {
-			callback(node, arg);
+	node->right = purge_rc(node->right, callback, arg);
+	node->left = purge_rc(node->left, callback, arg);
+	node = merge_next(node);
+	node = merge_prev(node);
+	if(!node->left && !node->right) {
+		if(node->base_size == node->size) {
+			callback(node,arg);
 			return NULL;
 		}
 	}
+	/*
+	if (node->size == node->base_size) {
+		if (node->left && (node->left->base_size != node->left->size)) {
+			node = rotate_right(node);
+			node->right = purge_rc(node->right, callback, arg);
+		} else if (node->right
+				&& (node->right->base_size != node->right->size)) {
+			node = rotate_left(node);
+			node->left = purge_rc(node->left, callback, arg);
+		} else if (!node->left && !node->right) {
+			if(callback(node, arg))
+				return NULL;
+			return node;
+		}
+	}
+	*/
 	return node;
 }
 
