@@ -299,6 +299,7 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
+		nwt_purgeCache();
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
@@ -322,7 +323,7 @@ static void* ymalloc_test(void* arg)
 		}
 //		printf("before purge\n");
 //		nwt_print();
-//		nwt_purgeCache();
+		nwt_purgeCache();
 //		printf("after purge\n");
 //		nwt_print();
 //		printf("\n\n\n");

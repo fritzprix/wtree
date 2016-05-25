@@ -64,7 +64,6 @@ void* nwt_malloc(size_t sz) {
 		return NULL;
 	if (sz < sizeof(nwtreeNode_t))
 		sz = sizeof(nwtreeNode_t);
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	sz += sizeof(struct chunk_header); // need additional size to put chunk header for keeping track of chunk size
 	size_t seg_sz = SEGMENT_SIZE;
 	uint8_t* chnk;
@@ -97,7 +96,6 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		return NULL;
 	if (sz < sizeof(nwtreeNode_t))
 		sz = sizeof(nwtreeNode_t);
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
@@ -138,7 +136,6 @@ void* nwt_calloc(size_t sz) {
 }
 
 extern void nwt_print() {
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
@@ -147,7 +144,6 @@ extern void nwt_print() {
 }
 
 uint32_t nwt_level() {
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
@@ -158,7 +154,6 @@ uint32_t nwt_level() {
 void nwt_free(void* chnk) {
 	if (!chnk)
 		return;
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
@@ -175,7 +170,6 @@ void nwt_free(void* chnk) {
 }
 
 void nwt_purgeCache() {
-//	nwt_cache_t* cache = pthread_getspecific(cache_key);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
@@ -241,16 +235,7 @@ static DECLARE_PURGE_CALLBACK(onpurge) {
 	nwt_cache_t* cache = ptcache;
 	cache->total_sz -= node->base_size;
 	cache->free_sz -= node->size;
-	printf("cleanup node : (base_size : %u / size : %u / base : %lu)\n",node->base_size,node->size,(size_t) node->base);
-	printf("current heap : (total size : %lu / free size : %lu)\n",cache->total_sz,cache->free_sz);
 	munmap(node->base, node->base_size);
 	return TRUE;
-/*	if ((node->base_size >> 1) >= 512) {
-		node->base_size >>= 1;
-		node->size >>= 1;
-		cache->total_sz -= node->base_size;
-		cache->free_sz -= node->size;
-		munmap(node->base + node->base_size, node->base_size);
-	}*/
 }
 

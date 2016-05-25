@@ -37,10 +37,7 @@ void nwtree_rootInit(nwtreeRoot_t* root) {
 	root->used_sz = 0;
 }
 
-/*
- * sz is size of memory chunk in bytes
- *
- */
+
 void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz) {
 	if (!node)
 		return;
@@ -50,6 +47,11 @@ void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz) {
 	node->base_size = 0;
 }
 
+/*
+ *  base node contains information about memory segment which is allocated from system (mmap)
+ *  base_size is original size of segment and barely changes. base nodes are also kept within tree
+ *  before the segment is explicitly freed
+ */
 void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz) {
 	if (!node)
 		return;
@@ -312,8 +314,16 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 		return item;
 	if (parent->base < item->base) {
 		if (parent->base + parent->size == item->base) {
-			if (parent->base_size)
+			/*
+			 *  if       | parent  ============== | item ==== |
+			 *  then     | parent  ========================== |
+			 */
+			if (parent->base_size) {
 				parent->base_size += item->base_size;
+			}
+			else if(item->base_size) {
+				return parent;
+			}
 			parent->size += item->size;
 		}else {
 			parent->right = insert_rc(parent->right, item);
@@ -325,6 +335,8 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 		if (item->base + item->size == parent->base) {
 			if (item->base_size)
 				item->base_size += parent->base_size;
+			else if(parent->base_size)
+				return parent;
 			item->size += parent->size;
 			item->left = parent->left;
 			item->right = parent->right;
@@ -398,17 +410,14 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, nwt_callback_t callback,
 		void* arg) {
 	if (!node)
 		return NULL;
-	node->right = purge_rc(node->right, callback, arg);
-	node->left = purge_rc(node->left, callback, arg);
-	node = merge_next(node);
-	node = merge_prev(node);
-	if(!node->left && !node->right) {
-		if(node->base_size == node->size) {
-			callback(node,arg);
-			return NULL;
-		}
+	if(node->right) {
+		node->right = purge_rc(node->right, callback, arg);
+		node = merge_next(node);
 	}
-	/*
+	if(node->left) {
+		node->left = purge_rc(node->left, callback, arg);
+		node = merge_prev(node);
+	}
 	if (node->size == node->base_size) {
 		if (node->left && (node->left->base_size != node->left->size)) {
 			node = rotate_right(node);
@@ -423,7 +432,6 @@ static nwtreeNode_t* purge_rc(nwtreeNode_t* node, nwt_callback_t callback,
 			return node;
 		}
 	}
-	*/
 	return node;
 }
 
