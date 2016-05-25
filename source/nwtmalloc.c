@@ -20,6 +20,7 @@
 #define SEGMENT_SIZE            ((size_t) 1 << 21)
 #endif
 
+
 static pthread_key_t cache_key;
 typedef struct {
 	nwtreeRoot_t root;
@@ -43,6 +44,7 @@ typedef struct {
 static void nwt_cache_dstr(void* cache);
 static DECLARE_PURGE_CALLBACK(oncleanup);
 static DECLARE_PURGE_CALLBACK(onpurge);
+static int unmap_wrapper(void* addr, size_t sz);
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz);
 static __thread nwt_cache_t* ptcache = NULL;
 
@@ -72,7 +74,7 @@ void* nwt_malloc(size_t sz) {
 		ptcache = nwt_cache_bootstrap(sz);
 		pthread_setspecific(cache_key, ptcache);
 	}
-	while (!(chnk = nwtree_reclaim_chunk(&ptcache->root, sz))) {
+	while (!(chnk = nwtree_reclaim_chunk(&ptcache->root, sz, TRUE))) {
 		while (seg_sz < sz)
 			seg_sz <<= 1; // calc min seg size , which is multiple of SEGMENT_SIZE, larger than requested sz
 		chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -81,7 +83,7 @@ void* nwt_malloc(size_t sz) {
 			exit(-1);
 		}
 		nwtree_baseNodeInit((nwtreeNode_t*) chnk, chnk, seg_sz);
-		nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chnk);
+		nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chnk,TRUE);
 		ptcache->total_sz += seg_sz;
 		ptcache->free_sz += seg_sz;
 	}
@@ -123,7 +125,7 @@ void* nwt_realloc(void* chnk, size_t sz) {
 	nchnk = nwt_malloc(sz);
 	memcpy(nchnk, chnk, *cur_sz);
 	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(size_t));
-	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) cur_sz);
+	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) cur_sz, TRUE);
 	return nchnk;
 }
 
@@ -166,7 +168,10 @@ void nwt_free(void* chnk) {
 	}
 	ptcache->free_sz += (*chnk_sz + sizeof(size_t));
 	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(size_t));
-	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk);
+	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk,TRUE);
+	if(ptcache->free_sz == ptcache->total_sz) {
+		nwtree_purge(&ptcache->root);
+	}
 }
 
 void nwt_purgeCache() {
@@ -174,7 +179,7 @@ void nwt_purgeCache() {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	nwtree_purge(&ptcache->root, onpurge, ptcache);
+	nwtree_purge(&ptcache->root);
 }
 
 
@@ -192,9 +197,9 @@ static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 	cache->base_sz = seg_sz;
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(nwt_cache_t);
 	nwtreeNode_t* seg_node = (nwtreeNode_t*) &cache[1];
-	nwtree_rootInit(&cache->root);
+	nwtree_rootInit(&cache->root, unmap_wrapper);
 	nwtree_nodeInit((nwtreeNode_t*) seg_node, seg_node, cache->free_sz);
-	nwtree_addNode(&cache->root, seg_node);
+	nwtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
 	cache->test_cnt = 0;
 	return cache;
@@ -231,11 +236,13 @@ static DECLARE_PURGE_CALLBACK(oncleanup) {
 	return TRUE;
 }
 
-static DECLARE_PURGE_CALLBACK(onpurge) {
-	nwt_cache_t* cache = ptcache;
-	cache->total_sz -= node->base_size;
-	cache->free_sz -= node->size;
-	munmap(node->base, node->base_size);
-	return TRUE;
+static int unmap_wrapper(void* addr, size_t sz) {
+	ptcache->total_sz -= sz;
+	ptcache->free_sz -= sz;
+	munmap(addr,sz);
+	return 0;
 }
+
+
+
 

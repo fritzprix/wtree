@@ -61,7 +61,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -88,7 +87,6 @@ int main(void){
 		perror("fork fail\n");
 		exit(-1);
 	}
-
 	return 0;
 }
 
@@ -299,7 +297,7 @@ static void* ymalloc_test(void* arg)
 			}
 			nwt_free(p);
 		}
-		nwt_purgeCache();
+//		nwt_purgeCache();
 	}
 	end = clock();
 	report->repeat_deep_malloc_free_time_fix_size = (double) (end - start) / CLOCKS_PER_SEC;
@@ -323,7 +321,7 @@ static void* ymalloc_test(void* arg)
 		}
 //		printf("before purge\n");
 //		nwt_print();
-		nwt_purgeCache();
+//		nwt_purgeCache();
 //		printf("after purge\n");
 //		nwt_print();
 //		printf("\n\n\n");
@@ -351,7 +349,7 @@ static void* ymalloc_test(void* arg)
 
 	return (void*) report;
 }
-
+/*
 static void basic_poc(void)
 {
 	int i;
@@ -369,9 +367,6 @@ static void basic_poc(void)
 	printf("========== Start Allocate Segment with mmap ===========\n");
 	for(i = 0;i < 20;i++)
 	{
-		/*
-		 *  grows heap size by add segment from mmap operation
-		 */
 		sz = ((rand() % 4096) + 512) & ~(0x1FF);
 		chk = mmap(NULL, sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 		printf("Add segment /w size : %u @ %lu --> " , sz, (uint64_t) chk);
@@ -482,7 +477,7 @@ static void basic_poc(void)
 	fsz = nwtree_freeSize(&root);
 	printf("After PurgeForce Total Size : %zu & free size : %zu\n",tsz,fsz);
 }
-
+*/
 static void print_report(const char* test_name, struct test_report* report)
 {
 	printf("\n==== TEST CONDITION for [%s] ====\n", test_name);

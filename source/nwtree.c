@@ -11,9 +11,9 @@
 #include <stdio.h>
 #include "cdsl_slist.h"
 
-static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item);
+static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t* item, BOOL compact);
 static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz);
-static nwtreeNode_t* purge_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg);
+static nwtreeNode_t* purge_rc(nwtreeRoot_t* root, nwtreeNode_t* node);
 static void iterbase_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg);
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
@@ -21,7 +21,7 @@ static size_t count_rc(nwtreeNode_t* node);
 static uint32_t level_rc(nwtreeNode_t* node);
 static nwtreeNode_t* rotate_left(nwtreeNode_t* parent);
 static nwtreeNode_t* rotate_right(nwtreeNode_t* parent);
-static nwtreeNode_t* resolve(nwtreeNode_t* parent);
+static nwtreeNode_t* resolve(nwtreeRoot_t* root, nwtreeNode_t* parent, BOOL compact);
 static nwtreeNode_t* merge_next(nwtreeNode_t* merger);
 static nwtreeNode_t* merge_prev(nwtreeNode_t* merger);
 static nwtreeNode_t* merge_from_leftend(nwtreeNode_t* left, nwtreeNode_t* merger);
@@ -29,10 +29,11 @@ static nwtreeNode_t* merge_from_rightend(nwtreeNode_t* right,nwtreeNode_t* merge
 static void print_rc(nwtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
-void nwtree_rootInit(nwtreeRoot_t* root) {
+void nwtree_rootInit(nwtreeRoot_t* root, nwt_unmap_func_t unmap_call) {
 	if (!root)
 		return;
 	root->entry = NULL;
+	root->unmap = unmap_call;
 	root->sz = 0;
 	root->used_sz = 0;
 }
@@ -60,10 +61,10 @@ void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz) {
 	node->base_size = node->size = sz;
 }
 
-void nwtree_purge(nwtreeRoot_t* root, nwt_callback_t callback, void* arg) {
+void nwtree_purge(nwtreeRoot_t* root) {
 	if (!root)
 		return;
-	root->entry = purge_rc(root->entry, callback, arg);
+	root->entry = purge_rc(root, root->entry);
 }
 
 void nwtree_iterBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg) {
@@ -96,13 +97,13 @@ size_t nwtree_freeSize(nwtreeRoot_t* root) {
 	return fsize_rc(root->entry);
 }
 
-void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node) {
+void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node, BOOL compact) {
 	if (!root)
 		return;
-	root->entry = insert_rc(root->entry, node);
+	root->entry = insert_rc(root, root->entry, node, compact);
 }
 
-void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz) {
+void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz, BOOL compact) {
 	if (!root || (sz <= 0))
 		return NULL;
 	if (!root->entry)
@@ -113,7 +114,7 @@ void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz) {
 		return NULL;
 	largest->size -= sz;
 	chunk = &chunk[largest->size];
-	root->entry = resolve(root->entry);
+	root->entry = resolve(root, root->entry, compact);
 	return chunk;
 }
 
@@ -131,7 +132,7 @@ void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz) {
 	root->entry = grows_node(root->entry, &node, nsz);
 	if (node)
 		return node;
-	return nwtree_reclaim_chunk(root, nsz);
+	return nwtree_reclaim_chunk(root, nsz,TRUE);
 }
 
 void nwtree_print(nwtreeRoot_t* root) {
@@ -185,7 +186,7 @@ static nwtreeNode_t* rotate_right(nwtreeNode_t* parent) {
 	return nparent;
 }
 
-static nwtreeNode_t* resolve(nwtreeNode_t* parent) {
+static nwtreeNode_t* resolve(nwtreeRoot_t* root, nwtreeNode_t* parent, BOOL compact) {
 	if (!parent)
 		return NULL;
 	if (parent->right && parent->left) {
@@ -194,28 +195,33 @@ static nwtreeNode_t* resolve(nwtreeNode_t* parent) {
 			return parent;
 		if (parent->right->size > parent->left->size) {
 			parent = rotate_left(parent);
-			parent->left = resolve(parent->left);
+			parent->left = resolve(root,parent->left,compact);
 			parent = merge_prev(parent);
 		} else {
 			parent = rotate_right(parent);
-			parent->right = resolve(parent->right);
+			parent->right = resolve(root,parent->right,compact);
 			parent = merge_next(parent);
 		}
 	} else if (parent->right) {
 		if (parent->right->size > parent->size) {
 			parent = rotate_left(parent);
-			parent->left = resolve(parent->left);
+			parent->left = resolve(root,parent->left,compact);
 			parent = merge_prev(parent);
 		}
 	} else if (parent->left) {
 		if (parent->left->size > parent->size) {
 			parent = rotate_right(parent);
-			parent->right = resolve(parent->right);
+			parent->right = resolve(root, parent->right,compact);
 			parent = merge_next(parent);
 		}
 	} else {
 		if (!parent->size && !parent->base_size){
 			return NULL;
+		}else if(parent->size == parent->base_size) {
+			if(root->unmap && compact) {
+				root->unmap(parent->base, parent->base_size);
+				return NULL;
+			}
 		}
 	}
 	return parent;
@@ -309,7 +315,7 @@ static nwtreeNode_t* merge_from_rightend(nwtreeNode_t* right,nwtreeNode_t* merge
 }
 
 
-static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
+static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t* item, BOOL compact) {
 	if (!parent)
 		return item;
 	if (parent->base < item->base) {
@@ -326,9 +332,9 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 			}
 			parent->size += item->size;
 		}else {
-			parent->right = insert_rc(parent->right, item);
+			parent->right = insert_rc(root,parent->right, item,compact);
 			parent = merge_next(parent);
-			parent = resolve(parent);
+			parent = resolve(root,parent,compact);
 		}
 		return parent;
 	} else {
@@ -342,9 +348,9 @@ static nwtreeNode_t* insert_rc(nwtreeNode_t* parent, nwtreeNode_t* item) {
 			item->right = parent->right;
 			parent = item;
 		} else {
-			parent->left = insert_rc(parent->left, item);
+			parent->left = insert_rc(root, parent->left, item,  compact);
 			parent = merge_prev(parent);
-			parent = resolve(parent);
+			parent = resolve(root, parent,compact);
 		}
 		return parent;
 	}
@@ -406,29 +412,30 @@ static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint
  *
  */
 
-static nwtreeNode_t* purge_rc(nwtreeNode_t* node, nwt_callback_t callback,
-		void* arg) {
+static nwtreeNode_t* purge_rc(nwtreeRoot_t* root, nwtreeNode_t* node) {
 	if (!node)
 		return NULL;
 	if(node->right) {
-		node->right = purge_rc(node->right, callback, arg);
+		node->right = purge_rc(root, node->right);
 		node = merge_next(node);
 	}
 	if(node->left) {
-		node->left = purge_rc(node->left, callback, arg);
+		node->left = purge_rc(root, node->left);
 		node = merge_prev(node);
 	}
 	if (node->size == node->base_size) {
 		if (node->left && (node->left->base_size != node->left->size)) {
 			node = rotate_right(node);
-			node->right = purge_rc(node->right, callback, arg);
+			node->right = purge_rc(root, node->right);
 		} else if (node->right
 				&& (node->right->base_size != node->right->size)) {
 			node = rotate_left(node);
-			node->left = purge_rc(node->left, callback, arg);
+			node->left = purge_rc(root, node->left);
 		} else if (!node->left && !node->right) {
-			if(callback(node, arg))
+			if(root->unmap) {
+				root->unmap(node->base, node->base_size);
 				return NULL;
+			}
 			return node;
 		}
 	}

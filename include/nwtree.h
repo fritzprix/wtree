@@ -16,7 +16,7 @@
 #define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
-
+typedef int (*nwt_unmap_func_t) (void* addr, size_t sz);
 
 struct nwtree_node {
 	nwtreeNode_t *left, *right;
@@ -29,6 +29,7 @@ typedef struct  {
 	nwtreeNode_t* entry;
 	size_t        sz;
 	size_t        used_sz;
+	nwt_unmap_func_t   unmap;
 }nwtreeRoot_t;
 
 /*          |   @ address   128  |
@@ -50,13 +51,13 @@ typedef struct  {
 typedef BOOL (*nwt_callback_t) (nwtreeNode_t* node,void* arg);
 
 
-extern void nwtree_rootInit(nwtreeRoot_t* root);
+extern void nwtree_rootInit(nwtreeRoot_t* root,nwt_unmap_func_t unmap_func);
 extern void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
 extern void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
-extern void nwtree_purge(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
+extern void nwtree_purge(nwtreeRoot_t* root);
 extern void nwtree_iterBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
-extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node);
-extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz);
+extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node, BOOL compact);
+extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz,BOOL compact);
 extern void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz);
 extern void nwtree_print(nwtreeRoot_t* root);
 extern uint32_t nwtree_level(nwtreeRoot_t* root);
