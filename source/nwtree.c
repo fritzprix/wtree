@@ -328,6 +328,12 @@ static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeN
 				parent->base_size += item->base_size;
 			}
 			else if(item->base_size) {
+				/*
+				 *  can't be merged
+				 */
+				parent->right = insert_rc(root,parent->right, item,compact);
+				parent = merge_next(parent);
+				parent = resolve(root,parent,compact);
 				return parent;
 			}
 			parent->size += item->size;
@@ -341,8 +347,12 @@ static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeN
 		if (item->base + item->size == parent->base) {
 			if (item->base_size)
 				item->base_size += parent->base_size;
-			else if(parent->base_size)
+			else if(parent->base_size) {
+				parent->left = insert_rc(root, parent->left, item,  compact);
+				parent = merge_prev(parent);
+				parent = resolve(root, parent,compact);
 				return parent;
+			}
 			item->size += parent->size;
 			item->left = parent->left;
 			item->right = parent->right;
