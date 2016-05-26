@@ -28,7 +28,7 @@ typedef struct {
 	size_t total_sz;       // size of total cache
 	size_t free_sz;        // size of free cache
 	slistEntry_t cleanup_list;
-	int test_cnt;
+	int purge_hit_cnt;
 } nwt_cache_t;
 
 struct chunk_header {
@@ -169,10 +169,10 @@ void nwt_free(void* chnk) {
 	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(size_t));
 	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk, TRUE);
 	if(ptcache->free_sz > ((ptcache->total_sz * 7) >> 3)) {
-		ptcache->test_cnt++;
-		if(ptcache->test_cnt > (1 << 13)) {
+		ptcache->purge_hit_cnt++;
+		if(ptcache->purge_hit_cnt > ((1 << 14) - (1 << 10)) ) {
 			nwtree_purge(&ptcache->root);
-			ptcache->test_cnt = 0;
+			ptcache->purge_hit_cnt = 0;
 		}
 	}
 }
@@ -185,13 +185,12 @@ void nwt_purgeCache() {
 	nwtree_purge(&ptcache->root);
 }
 
-
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 	size_t seg_sz = SEGMENT_SIZE;
 	while (seg_sz < init_sz)
 		seg_sz <<= 1;	// grow seg_sz unless it is greater than requested size
 	uint8_t* chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ,
-			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_NONBLOCK, -1, 0);
 	if (!chnk) {
 		fprintf(stderr, "System memory depleted!\n");
 		exit(-1);
@@ -201,11 +200,10 @@ static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(nwt_cache_t);
 	nwtreeNode_t* seg_node = (nwtreeNode_t*) &cache[1];
 	nwtree_rootInit(&cache->root, unmap_wrapper);
-	cache->test_cnt = 0;
+	cache->purge_hit_cnt = 0;
 	nwtree_nodeInit((nwtreeNode_t*) seg_node, seg_node, cache->free_sz);
 	nwtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
-	cache->test_cnt = 0;
 	return cache;
 }
 
@@ -234,7 +232,7 @@ static void nwt_cache_dstr(void* cache) {
 static DECLARE_PURGE_CALLBACK(oncleanup) {
 	nwt_cache_t* cache = (nwt_cache_t*) arg;
 	cleanup_list_t* clhead = (cleanup_list_t*) node;
-	cache->test_cnt++;
+	cache->purge_hit_cnt++;
 	cdsl_slistNodeInit(&clhead->lhead);
 	cdsl_slistPutHead(&cache->cleanup_list, &clhead->lhead);
 	return TRUE;
