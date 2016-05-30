@@ -1,4 +1,6 @@
 SRC-y+=./source
 INC-y+=./include
 OBJ-y+= nwtree \
-		nwtmalloc
+		nwtmalloc\
+		bestfit\
+		buddy

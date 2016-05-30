@@ -20,7 +20,7 @@
 #include "cdsl_nrbtree.h"
 #include "nwtree.h"
 
-#define LOOP_CNT     30
+#define LOOP_CNT     100
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
 #define TH_CNT       16
@@ -53,7 +53,6 @@ static void print_report(const char* test_name, struct test_report* report);
 static pthread_t thrs[TH_CNT];
 static struct test_report reports[TH_CNT];
 
-static DECLARE_PURGE_CALLBACK(onpurge);
 
 static void perf_test_nmalloc(void);
 static void perf_test_oldmalloc(void);
@@ -61,6 +60,7 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -257,6 +257,7 @@ static void* ymalloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->malloc_time = dt;
+
 
 
 

@@ -8,6 +8,7 @@
 #include "nwtmalloc.h"
 #include "nwtree.h"
 #include "cdsl_slist.h"
+#include "cdsl_nrbtree.h"
 
 #include <string.h>
 #include <stddef.h>
@@ -21,19 +22,22 @@
 #endif
 
 
+
 static pthread_key_t cache_key;
 typedef struct {
 	nwtreeRoot_t root;
-	size_t base_sz; // size of base segment in which cache header itself is contained
+	uint32_t     base_sz; // size of base segment in which cache header itself is contained
+	uint32_t     free_cnt;
 	size_t total_sz;       // size of total cache
 	size_t free_sz;        // size of free cache
 	slistEntry_t cleanup_list;
+	pthread_t pid;
 	int purge_hit_cnt;
 } nwt_cache_t;
 
 struct chunk_header {
-	size_t prev_sz;
-	size_t cur_sz;
+	uint32_t prev_sz;
+	uint32_t cur_sz;
 };
 
 typedef struct {
@@ -45,6 +49,7 @@ static void nwt_cache_dstr(void* cache);
 static DECLARE_PURGE_CALLBACK(oncleanup);
 static int unmap_wrapper(void* addr, size_t sz);
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz);
+
 static __thread nwt_cache_t* ptcache = NULL;
 
 void nwt_init() {
@@ -87,9 +92,10 @@ void* nwt_malloc(size_t sz) {
 		ptcache->free_sz += seg_sz;
 	}
 	ptcache->free_sz -= sz;
-	*((size_t*) chnk) = sz - sizeof(size_t); // set current chunk size before the usable memory area
-	*((size_t*) &chnk[sz - sizeof(size_t)]) = sz - sizeof(size_t); // set prev_chunk size at the prev_sz field in next chunk header
-	return &chnk[sizeof(size_t)];
+	*((uint32_t*) chnk) = sz - sizeof(uint32_t); // set current chunk size before the usable memory area
+	*((uint32_t*) &chnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
+	ptcache->free_cnt = 0;
+	return &chnk[sizeof(uint32_t)];
 }
 
 void* nwt_realloc(void* chnk, size_t sz) {
@@ -102,18 +108,18 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		exit(-1);
 	}
 	void* nchnk;
-	size_t *sz_chk, *cur_sz;
-	cur_sz = ((size_t*) chnk - 1);
-	sz_chk = (size_t*) &(((uint8_t*) cur_sz)[*cur_sz]);
+	uint32_t *sz_chk, *cur_sz;
+	cur_sz = ((uint32_t*) chnk - 1);
+	sz_chk = (uint32_t*) &(((uint8_t*) cur_sz)[*cur_sz]);
 	if (*cur_sz != *sz_chk) {
 		/*
 		 * if current size in chunk header is not identical to prev size in at the tail
 		 * header is assumed to be corrupted
 		 */
-		fprintf(stderr, "Heap corrupted %lu : %lu\n", *cur_sz, *sz_chk);
+		fprintf(stderr, "Heap corrupted %u : %u\n", *cur_sz, *sz_chk);
 		exit(-1);
 	}
-	if ((*cur_sz - sizeof(size_t)) >= sz) {
+	if ((*cur_sz - sizeof(uint32_t)) >= sz) {
 		/*
 		 * if new requested size is not greater than original
 		 * just return original chunk
@@ -123,7 +129,7 @@ void* nwt_realloc(void* chnk, size_t sz) {
 
 	nchnk = nwt_malloc(sz);
 	memcpy(nchnk, chnk, *cur_sz);
-	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(size_t));
+	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(uint32_t));
 	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) cur_sz, TRUE);
 	return nchnk;
 }
@@ -159,22 +165,26 @@ void nwt_free(void* chnk) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	uint8_t* chk = ((uint8_t*) chnk) - sizeof(size_t);
-	size_t* chnk_sz = ((size_t*) chk);
-	if (*((size_t*) &chk[*chnk_sz]) != *chnk_sz) {
+	uint8_t* chk = ((uint8_t*) chnk) - sizeof(uint32_t);
+	uint32_t* chnk_sz = ((uint32_t*) chk);
+	if (*((uint32_t*) &chk[*chnk_sz]) != *chnk_sz) {
 		fprintf(stderr, "Heap corrupted\n");
 		exit(-1);
 	}
-	ptcache->free_sz += (*chnk_sz + sizeof(size_t));
-	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(size_t));
+	ptcache->free_sz += (*chnk_sz + sizeof(uint32_t));
+	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
+	nwtree_nodeInit((nwtreeNode_t*) chk, chk, *chnk_sz + sizeof(uint32_t));
 	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) chk, TRUE);
-	if(ptcache->free_sz > ((ptcache->total_sz * 7) >> 3)) {
+//	if(ptcache->free_sz > ((ptcache->total_sz * 15) >> 4)) {
+	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
 		ptcache->purge_hit_cnt++;
-		if(ptcache->purge_hit_cnt > ((1 << 14) - (1 << 10)) ) {
+		if(ptcache->purge_hit_cnt > ((1 << 8)) ) {
 			nwtree_purge(&ptcache->root);
 			ptcache->purge_hit_cnt = 0;
+			ptcache->free_cnt = 0;
 		}
 	}
+
 }
 
 void nwt_purgeCache() {
@@ -187,6 +197,7 @@ void nwt_purgeCache() {
 
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 	size_t seg_sz = SEGMENT_SIZE;
+	pthread_t pid = pthread_self();
 	while (seg_sz < init_sz)
 		seg_sz <<= 1;	// grow seg_sz unless it is greater than requested size
 	uint8_t* chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ,
@@ -196,14 +207,17 @@ static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz) {
 		exit(-1);
 	}
 	nwt_cache_t* cache = (nwt_cache_t*) chnk;
+	cache->pid = pthread_self();
 	cache->base_sz = seg_sz;
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(nwt_cache_t);
+	cache->free_cnt = 0;
 	nwtreeNode_t* seg_node = (nwtreeNode_t*) &cache[1];
 	nwtree_rootInit(&cache->root, unmap_wrapper);
 	cache->purge_hit_cnt = 0;
 	nwtree_nodeInit((nwtreeNode_t*) seg_node, seg_node, cache->free_sz);
 	nwtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
+
 	return cache;
 }
 
@@ -223,7 +237,7 @@ static void nwt_cache_dstr(void* cache) {
 		munmap((void*) lh, lh->node.base_size);
 	}
 	if ((cachep->total_sz + sizeof(nwt_cache_t)) != cachep->base_sz) {
-		printf("some seg lost : %lu / %lu\n", cachep->base_sz,
+		printf("some seg lost : %u / %lu\n", cachep->base_sz,
 				cachep->total_sz);
 	}
 	munmap(cachep, cachep->base_sz);

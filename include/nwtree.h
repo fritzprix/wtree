@@ -66,7 +66,4 @@ extern size_t nwtree_totalSize(nwtreeRoot_t* root);
 extern size_t nwtree_freeSize(nwtreeRoot_t* root);
 
 
-
-
-
 #endif /* INCLUDE_NWTREE_H_ */
