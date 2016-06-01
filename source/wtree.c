@@ -86,8 +86,8 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - sizeof(wtreeNode_t)) < sz)
 		return NULL;
-	chunk = &chunk[-largest->size];
 	largest->size -= sz;
+	chunk = chunk - largest->size;
 	root->entry = resolve(root, root->entry, compact);
 	return chunk;
 }
@@ -99,7 +99,7 @@ void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t* node, uint32_t nsz) {
 		return NULL;
 	uint8_t* chunk = (uint8_t*) (node->top - node->size);
 	wtreeNode_t* cur = root->entry;
-	size_t dsz = nsz - node->size;
+	int32_t dsz = nsz - node->size;
 	if(dsz < 0)
 		return chunk;
 
@@ -110,7 +110,7 @@ void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t* node, uint32_t nsz) {
 			cur = cur->left;
 		} else {
 			// origin node is found
-			chunk = &chunk[cur->top - cur->size];
+			chunk = &chunk[(int) (cur->top - cur->size)];
 			cur->size -= dsz;
 			return chunk;
 		}
@@ -123,7 +123,7 @@ void wtree_print(wtreeRoot_t* root) {
 		return;
 	if(!root->entry)
 		return;
-	print_rc(root, 0);
+	print_rc(root->entry, 0);
 }
 
 uint32_t wtree_level(wtreeRoot_t* root) {
@@ -209,14 +209,16 @@ static wtreeNode_t* grows_node(wtreeNode_t* parent, wtreeNode_t** grown, uint32_
 		grown = NULL;
 		return NULL;
 	}
-	if(*grown->top == (parent->top - parent->size)) {
-		if((parent->size + sizeof(wtreeNode_t)) > (nsz - *grown->size)) {
-			parent->size -= (nsz - *grown->size);
+	if((*grown)->top == (parent->top - parent->size)) {
+		if((parent->size + sizeof(wtreeNode_t)) > (nsz - (*grown)->size)) {
+			parent->size -= (nsz - (*grown)->size);
 			return parent;
 		}
+		// return requested node to its base node or neighbor
+		parent->size += (*grown)->size;
 		grown = NULL;
 		return parent;
-	} else if(*grown->top > parent->top) {
+	} else if((*grown)->top > parent->top) {
 		parent->right = grows_node(parent->right, grown, nsz);
 	} else {
 		parent->left = grows_node(parent->left, grown, nsz);

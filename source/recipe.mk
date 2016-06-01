@@ -4,4 +4,5 @@ OBJ-y+= nwtree \
 		nwtmalloc\
 		bestfit\
 		buddy\
-		wtree
+		wtree\
+		wtmalloc
