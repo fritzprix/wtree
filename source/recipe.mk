@@ -3,4 +3,5 @@ INC-y+=./include
 OBJ-y+= nwtree \
 		nwtmalloc\
 		bestfit\
-		buddy
+		buddy\
+		wtree

@@ -13,6 +13,10 @@
 
 #include "cdsl_slist.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
@@ -65,5 +69,8 @@ extern size_t nwtree_nodeCount(nwtreeRoot_t* root);
 extern size_t nwtree_totalSize(nwtreeRoot_t* root);
 extern size_t nwtree_freeSize(nwtreeRoot_t* root);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INCLUDE_NWTREE_H_ */

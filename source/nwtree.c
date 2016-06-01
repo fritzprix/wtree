@@ -465,7 +465,6 @@ static void iterbase_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg) 
 static size_t size_rc(nwtreeNode_t* node) {
 	if (!node)
 		return 0;
-
 	size_t sz = size_rc(node->left);
 	sz += node->base_size;
 	sz += size_rc(node->right);
