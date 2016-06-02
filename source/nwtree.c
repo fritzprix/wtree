@@ -118,7 +118,7 @@ void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz, BOOL compact) {
 	return chunk;
 }
 
-void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz) {
+void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t** node, uint32_t nsz) {
 	/*
 	 *  grow provides way to increase chunk without copy when contiguous memory is available.
 	 *  otherwise, it will return new avaiable chunk. caller should compare return value to
@@ -129,10 +129,10 @@ void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t* node, uint32_t nsz) {
 		return NULL;
 	if (!root->entry)
 		return NULL;
-	root->entry = grows_node(root->entry, &node, nsz);
-	if (node)
-		return node;
-	return nwtree_reclaim_chunk(root, nsz,TRUE);
+	root->entry = grows_node(root->entry, node, nsz);
+	if (*node)
+		return *node;
+	return nwtree_reclaim_chunk(root, nsz, TRUE);
 }
 
 void nwtree_print(nwtreeRoot_t* root) {
@@ -367,17 +367,38 @@ static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeN
 }
 
 static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz) {
-	if (!parent)
+	if (!parent) {
+		*grown = NULL;
 		return NULL;
-	if (parent->size == 0)
-		return NULL;
+	}
+	if (parent->size == 0) {
+		*grown = NULL;
+		return parent;
+	}
 	if((*grown)->base > (parent->base + parent->base_size)) {
 		parent->right = grows_node(parent->right, grown, nsz);
 	} else if((*grown)->base < parent->base) {
 		parent->left = grows_node(parent->left, grown, nsz);
 	} else {
+		if(((nsz - (*grown)->size + sizeof(nwtreeNode_t)) < parent->size) && (!parent->base_size)) {
+			(*grown)->size = nsz;
+			parent->size -= (nsz - (*grown)->size);
+			nwtreeNode_t* node = (nwtreeNode_t*) ((size_t) (*grown)->base + (*grown)->size);
+			memcpy(node, parent, sizeof(nwtreeNode_t));
+			return node;
+		} else {
+			if(parent->base_size) {
+				(*grown)->right = parent;
+			} else {
+				(*grown)->size += parent->size;
+				(*grown)->left = parent->left;
+				(*grown)->right = parent->right;
+			}
+			parent = *grown;
+		}
 	}
-	return NULL;
+	*grown = NULL;
+	return parent;
 }
 
 /*

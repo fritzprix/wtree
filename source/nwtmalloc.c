@@ -101,16 +101,21 @@ void* nwt_malloc(size_t sz) {
 void* nwt_realloc(void* chnk, size_t sz) {
 	if (!chnk || !sz)
 		return NULL;
-	if (sz < sizeof(nwtreeNode_t))
-		sz = sizeof(nwtreeNode_t);
 	if (!ptcache) {
 		fprintf(stderr, "Heap uninitialized\n");
 		exit(-1);
 	}
-	void* nchnk;
+
+	uint8_t* nchnk;
 	uint32_t *sz_chk, *cur_sz;
+
+	if (sz < sizeof(nwtreeNode_t))
+		sz = sizeof(nwtreeNode_t);
+	sz += sizeof(struct chunk_header);
+
 	cur_sz = ((uint32_t*) chnk - 1);
 	sz_chk = (uint32_t*) &(((uint8_t*) cur_sz)[*cur_sz]);
+
 	if (*cur_sz != *sz_chk) {
 		/*
 		 * if current size in chunk header is not identical to prev size in at the tail
@@ -119,7 +124,8 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		fprintf(stderr, "Heap corrupted %u : %u\n", *cur_sz, *sz_chk);
 		exit(-1);
 	}
-	if ((*cur_sz - sizeof(uint32_t)) >= sz) {
+	size_t osz = *cur_sz + sizeof(uint32_t);
+	if ((*cur_sz + sizeof(uint32_t)) >= sz) {
 		/*
 		 * if new requested size is not greater than original
 		 * just return original chunk
@@ -127,11 +133,22 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		return chnk;
 	}
 
-	nchnk = nwt_malloc(sz);
-	memcpy(nchnk, chnk, *cur_sz);
-	nwtree_nodeInit((nwtreeNode_t*) cur_sz, cur_sz, *cur_sz + sizeof(uint32_t));
-	nwtree_addNode(&ptcache->root, (nwtreeNode_t*) cur_sz, TRUE);
-	return nchnk;
+	nwtreeNode_t preserved;
+	nwtreeNode_t* grows = (nwtreeNode_t*) cur_sz;
+
+	memcpy(&preserved, grows, sizeof(nwtreeNode_t));
+	nwtree_nodeInit((nwtreeNode_t*) grows, grows, *cur_sz + sizeof(uint32_t));
+	nchnk = nwtree_grow_chunk(&ptcache->root, &grows,sz);
+	if(!grows) {
+		// fail to grow chunk
+		memcpy(nchnk + sizeof(nwtreeNode_t),((uint8_t*) cur_sz + sizeof(nwtreeNode_t)), osz);
+	}
+	memcpy(nchnk, &preserved, sizeof(nwtreeNode_t));
+	ptcache->free_sz -= (sz - osz);
+	*((uint32_t*) nchnk - 1) = sz - sizeof(uint32_t);
+	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
+	ptcache->free_cnt = 0;
+	return ((uint32_t*)nchnk + 1);
 }
 
 void* nwt_calloc(size_t sz) {
