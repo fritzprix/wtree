@@ -2,5 +2,13 @@
 	"YM_RECIPE":{
 		"type":"recipe",
 		"path":"./recipe.mk"
+	},
+	"TEST_ENABLE": {
+		"type":"bool",
+		"default":"n"
+	},
+	"TEST_CONFIG": {
+		"type":"config",
+		"path":"./test/config.json"
 	}
 }

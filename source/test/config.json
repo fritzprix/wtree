@@ -1,0 +1,14 @@
+{
+	"TEST_TARGET" : {
+		"type":"enum",
+		"enum": [
+			"nwt_test",
+			"wt_test"
+		],
+		"default": 0
+	},
+	"TEST_SUB_CONFIG" : {
+		"type":"config",
+		"path":"./$TEST_TARGET/config.json"
+	}
+}

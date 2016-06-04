@@ -23,7 +23,7 @@
 #define LOOP_CNT     100
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
-#define TH_CNT       1
+#define TH_CNT       16
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -44,8 +44,6 @@ struct test_report {
 	double repeat_deep_malloc_free_time_rnd_size;
 };
 
-const char* LOGFILE_NAME_FORMAT = "log_%s_%u";
-
 static void* malloc_test(void* );
 static void* ymalloc_test(void* );
 static void print_report(const char* test_name, struct test_report* report);
@@ -60,9 +58,8 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-	nwt_init();
-	perf_test_nmalloc();
-	/*
+//	nwt_init();
+//	perf_test_nmalloc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -88,11 +85,9 @@ int main(void){
 	{
 		perror("fork fail\n");
 		exit(-1);
-	}*/
+	}
 	return 0;
 }
-
-
 
 
 static void* malloc_test(void* arg)

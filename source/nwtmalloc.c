@@ -124,7 +124,7 @@ void* nwt_realloc(void* chnk, size_t sz) {
 		fprintf(stderr, "Heap corrupted %u : %u\n", *cur_sz, *sz_chk);
 		exit(-1);
 	}
-	size_t osz = *cur_sz + sizeof(uint32_t);
+	size_t osz = *cur_sz;
 	if ((*cur_sz + sizeof(uint32_t)) >= sz) {
 		/*
 		 * if new requested size is not greater than original
@@ -141,11 +141,11 @@ void* nwt_realloc(void* chnk, size_t sz) {
 	nchnk = nwtree_grow_chunk(&ptcache->root, &grows,sz);
 	if(!grows) {
 		// fail to grow chunk
-		memcpy(nchnk + sizeof(nwtreeNode_t),((uint8_t*) cur_sz + sizeof(nwtreeNode_t)), osz);
+		memcpy(nchnk + sizeof(nwtreeNode_t),((uint8_t*) cur_sz + sizeof(nwtreeNode_t)), osz - sizeof(nwtreeNode_t));
 	}
 	memcpy(nchnk, &preserved, sizeof(nwtreeNode_t));
 	ptcache->free_sz -= (sz - osz);
-	*((uint32_t*) nchnk - 1) = sz - sizeof(uint32_t);
+	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
 	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
 	ptcache->free_cnt = 0;
 	return ((uint32_t*)nchnk + 1);

@@ -93,14 +93,14 @@ $(REL_DYNAMIC_TARGET) : $(REL_SH_OBJS)
 	@echo 'Generating Share Library File .... $@'
 	$(CC) -o $@ -shared $(REL_CFLAG) $(DYNAMIC_FLAG) $(REL_SH_OBJS)
 	
-$(TEST_TARGET) : $(REL_CACHE_DIR)/main.o $(REL_OBJS) 
+$(TEST_TARGET) : $(REL_OBJS) 
 	@echo 'Building unit-test executable... $@'
-	$(CC) -o $@ $(REL_CFLAG) $< $(REL_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
+	$(CC) -o $@ $(REL_CFLAG)  $(REL_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
 	
 
-$(DEV_TEST_TARGET) : $(DBG_CACHE_DIR)/main.do $(DBG_OBJS) 
+$(DEV_TEST_TARGET) : $(DBG_OBJS) 
 	@echo 'Building unit-test executable... $@'
-	$(CC) -o $@ $(DBG_CFLAG) $< $(DBG_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
+	$(CC) -o $@ $(DBG_CFLAG) $(DBG_OBJS) $(LDFLAG) $(LIB_DIR) $(LIBS)
 	
 $(DBG_CACHE_DIR)/%.do : %.c
 	@echo 'compile...$@'

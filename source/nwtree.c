@@ -9,10 +9,11 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "cdsl_slist.h"
 
 static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t* item, BOOL compact);
-static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz);
+static nwtreeNode_t* grows_node(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz);
 static nwtreeNode_t* purge_rc(nwtreeRoot_t* root, nwtreeNode_t* node);
 static void iterbase_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg);
 static size_t size_rc(nwtreeNode_t* node);
@@ -129,10 +130,14 @@ void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t** node, uint32_t nsz) {
 		return NULL;
 	if (!root->entry)
 		return NULL;
-	root->entry = grows_node(root->entry, node, nsz);
-	if (*node)
+	root->entry = grows_node(root, root->entry, node, nsz);
+	root->entry = resolve(root,root->entry,TRUE);
+	if (*node) {
+		printf("return ptr in grow chunk /success! %lu\n",(uint64_t) *node);
 		return *node;
-	return nwtree_reclaim_chunk(root, nsz, TRUE);
+	}
+	uint8_t* nchk = nwtree_reclaim_chunk(root, nsz, TRUE);
+	return nchk;
 }
 
 void nwtree_print(nwtreeRoot_t* root) {
@@ -366,20 +371,26 @@ static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeN
 	}
 }
 
-static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz) {
+static nwtreeNode_t* grows_node(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz) {
 	if (!parent) {
-		*grown = NULL;
-		return NULL;
-	}
-	if (parent->size == 0) {
+		parent = *grown;
 		*grown = NULL;
 		return parent;
 	}
-	if((*grown)->base > (parent->base + parent->base_size)) {
-		parent->right = grows_node(parent->right, grown, nsz);
-	} else if((*grown)->base < parent->base) {
-		parent->left = grows_node(parent->left, grown, nsz);
+	if((*grown)->base > parent->base) {
+		parent->right = grows_node(root, parent->right, grown, nsz);
+		parent = merge_next(parent);
+		parent = resolve(root,parent,FALSE);
+	} else if(((*grown)->base + (*grown)->size) < parent->base) {
+		parent->left = grows_node(root, parent->left, grown, nsz);
+		parent = merge_prev(parent);
+		parent = resolve(root,parent,FALSE);
 	} else {
+		if(((*grown)->base + (*grown)->size) != parent->base) {
+			fprintf(stderr, "heap corrupted");
+			exit(-1);
+		}
+		printf("found parent\n");
 		if(((nsz - (*grown)->size + sizeof(nwtreeNode_t)) < parent->size) && (!parent->base_size)) {
 			(*grown)->size = nsz;
 			parent->size -= (nsz - (*grown)->size);
@@ -395,9 +406,9 @@ static nwtreeNode_t* grows_node(nwtreeNode_t* parent, nwtreeNode_t** grown, uint
 				(*grown)->right = parent->right;
 			}
 			parent = *grown;
+			*grown = NULL;
 		}
 	}
-	*grown = NULL;
 	return parent;
 }
 
