@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "cdsl_slist.h"
 
 static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact);
@@ -73,7 +74,21 @@ void wtree_iterBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg) {
 void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 	if(!root || !node)
 		return;
+	BOOL base = FALSE;
+	wtreeNode_t cache;
+	memcpy(&cache, node, sizeof(wtreeNode_t));
+	if(node->base_size){
+		base = TRUE;
+		printf("segment is added @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) node, (uint64_t) node->top,node->size, (uint64_t) node->top - node->base_size);
+	}
 	root->entry = insert_rc(root,root->entry,node,compact);
+	if(node->base_size) {
+		if(!base) {
+			printf("WTF : CACHED : @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) cache.top - sizeof(wtreeNode_t), (uint64_t) cache.top, cache.size, (uint64_t) cache.top - cache.base_size);
+			printf("segment is added @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) node, (uint64_t) node->top,node->size, (uint64_t) node->top - node->base_size);
+		}
+		wtree_print(root);
+	}
 }
 
 
@@ -86,8 +101,8 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - sizeof(wtreeNode_t)) < sz)
 		return NULL;
-	largest->size -= sz;
 	chunk = chunk - largest->size;
+	largest->size -= sz;
 	root->entry = resolve(root, root->entry, compact);
 	return chunk;
 }
@@ -123,7 +138,9 @@ void wtree_print(wtreeRoot_t* root) {
 		return;
 	if(!root->entry)
 		return;
+	printf("\n");
 	print_rc(root->entry, 0);
+	printf("\n");
 }
 
 uint32_t wtree_level(wtreeRoot_t* root) {
@@ -371,6 +388,8 @@ static wtreeNode_t* merge_next(wtreeNode_t* merger) {
 	 *    rll (m)               rllr (m)           rllrr(nm)  rlr
 	 *    / \                  /    \
 	 *   0  rllr              0    rllrr
+
+	 *
 	 */
 	if(!merger)
 		return NULL;
@@ -399,17 +418,26 @@ static wtreeNode_t* merge_prev(wtreeNode_t* merger) {
 
 
 static wtreeNode_t* merge_from_leftend(wtreeNode_t* left, wtreeNode_t* merger) {
+	/*
+	 *   |--------------|header 1|
+	 *                                          |-----------|header 2|
+	 *                           |-----|header 3|
+	 */
 	if(!left)
 		return NULL;
 	left->left = merge_from_leftend(left->left, merger);
 	if(left->left)
 		return left;
 	while((left->top - left->size) == merger->top) {
-		if(left->base_size)
+		if(left->base_size) {
 			merger->base_size += left->base_size;
-		else if(merger->base_size)
+		}
+		else if(merger->base_size) {
+			printf("here? leftend\n");
 			return left;
+		}
 		merger->size += left->size;
+		merger->top = left->top;
 		if(!left->right)
 			return NULL;
 		left = left->right;
@@ -419,16 +447,23 @@ static wtreeNode_t* merge_from_leftend(wtreeNode_t* left, wtreeNode_t* merger) {
 
 
 static wtreeNode_t* merge_from_rightend(wtreeNode_t* right,wtreeNode_t* merger) {
+	/*
+	 *                                   |------------|header 1|
+	 *    |-----|header 2|
+	 *                   |------|header 3|
+	 */
 	if(!right)
 		return NULL;
 	right->right = merge_from_rightend(right->right, merger);
 	if(right->right)
 		return right;
 	while((merger->top - merger->size) == right->top) {
-		if(merger->base_size)
+		if(merger->base_size){
 			merger->base_size += right->base_size;
-		else if(right->base_size)
+		}
+		else if(right->base_size) {
 			return right;
+		}
 		merger->size += right->size;
 		if(!right->left)
 			return NULL;
@@ -442,8 +477,8 @@ static void print_rc(wtreeNode_t* parent, int depth) {
 		return;
 	print_rc(parent->right, depth + 1);
 	print_tab(depth);
-	printf("Node@%lu {size : %u / base_size : %u } (%d)\n",
-			(uint64_t) parent->top - parent->base_size, parent->size, parent->base_size, depth);
+	printf("Node@%lx (bottom : %lx / base :%lx) {size : %u / base_size : %u / top : %lx} (%d)\n",
+			(uint64_t) parent, (uint64_t)parent->top - parent->size, (uint64_t)parent->top - parent->base_size, parent->size, parent->base_size, (uint64_t) parent->top, depth);
 	print_rc(parent->left, depth + 1);
 }
 

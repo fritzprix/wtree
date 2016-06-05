@@ -19,16 +19,16 @@ extern "C" {
 
 
 
-extern void nwt_init();
-extern void nwt_exit();
-extern void* nwt_malloc(size_t sz);
-extern void nwt_stats();
-extern void* nwt_realloc(void* chnk, size_t sz);
-extern void* nwt_calloc(size_t sz);
-extern void nwt_print();
-extern uint32_t nwt_level();
-extern void nwt_free(void* chnk);
-extern void nwt_purgeCache();
+extern void wt_init();
+extern void wt_exit();
+extern void* wt_malloc(size_t sz);
+extern void wt_stats();
+extern void* wt_realloc(void* chnk, size_t sz);
+extern void* wt_calloc(size_t sz);
+extern void wt_print();
+extern uint32_t wt_level();
+extern void wt_free(void* chnk);
+extern void wt_purgeCache();
 
 
 

@@ -72,6 +72,7 @@ void* wt_malloc(size_t sz) {
 	if (sz < sizeof(wtreeNode_t))
 		sz = sizeof(wtreeNode_t);
 	sz += sizeof(struct chunk_header); // need additional size to put chunk header for keeping track of chunk size
+	sz = (sz + 8) & ~7;
 	size_t seg_sz = SEGMENT_SIZE;
 	uint8_t* chnk;
 	if (!ptcache) {
@@ -178,6 +179,7 @@ void wt_free(void* chnk) {
 	ptcache->free_sz += (*chnk_sz + sizeof(uint32_t));
 	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
 	node = wtree_nodeInit(chk, *chnk_sz + sizeof(uint32_t));
+//	printf("freed @%lx : size %u\n",(uint64_t)node,node->size);
 	wtree_addNode(&ptcache->root, node, TRUE);
 //	if(ptcache->free_sz > ((ptcache->total_sz * 15) >> 4)) {
 	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
@@ -210,7 +212,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 		fprintf(stderr, "System memory depleted!\n");
 		exit(-1);
 	}
-	wt_cache_t* cache = (wt_cache_t*) chnk;
+	wt_cache_t* cache = (wt_cache_t*) &chnk[seg_sz - sizeof(wt_cache_t)];
 	cache->pid = pthread_self();
 	cache->base_sz = seg_sz;
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
@@ -218,7 +220,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	wtreeNode_t* seg_node;
 	wtree_rootInit(&cache->root, unmap_wrapper);
 	cache->purge_hit_cnt = 0;
-	seg_node = wtree_nodeInit(&cache[1], cache->free_sz);
+	seg_node = wtree_nodeInit(chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
 
