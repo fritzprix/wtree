@@ -23,7 +23,7 @@
 #define LOOP_CNT     100
 #define TEST_CNT     60000
 #define MAX_REQ_SIZE 4096
-#define TH_CNT       1
+#define TH_CNT       16
 
 typedef struct  {
 	nrbtreeNode_t node;
@@ -58,9 +58,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-	wt_init();
-	perf_test_nmalloc();
-	/*
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -86,7 +83,7 @@ int main(void){
 	{
 		perror("fork fail\n");
 		exit(-1);
-	}*/
+	}
 	return 0;
 }
 
@@ -149,7 +146,6 @@ static void* malloc_test(void* arg)
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->free_time = dt;
 
-
 	int loop_cnt;
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
@@ -172,6 +168,7 @@ static void* malloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->repeat_deep_malloc_free_time_fix_size = dt;
+
 
 
 	clock_gettime(CLOCK_REALTIME,&startts);
@@ -270,6 +267,7 @@ static void* ymalloc_test(void* arg)
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->free_time = dt;
 
+
 	int loop_cnt;
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
@@ -291,7 +289,6 @@ static void* ymalloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->repeat_deep_malloc_free_time_fix_size = dt;
-
 
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {

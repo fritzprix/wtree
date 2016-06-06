@@ -42,8 +42,8 @@ struct chunk_header {
 };
 
 typedef struct {
-	wtreeNode_t node;
 	slistNode_t lhead;
+	wtreeNode_t node;
 } cleanup_list_t;
 
 static void wt_cache_dstr(void* cache);
@@ -179,7 +179,6 @@ void wt_free(void* chnk) {
 	ptcache->free_sz += (*chnk_sz + sizeof(uint32_t));
 	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
 	node = wtree_nodeInit(chk, *chnk_sz + sizeof(uint32_t));
-//	printf("freed @%lx : size %u\n",(uint64_t)node,node->size);
 	wtree_addNode(&ptcache->root, node, TRUE);
 //	if(ptcache->free_sz > ((ptcache->total_sz * 15) >> 4)) {
 	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
@@ -232,6 +231,7 @@ static void wt_cache_dstr(void* cache) {
 		return;
 	wt_cache_t* cachep = (wt_cache_t*) cache;
 	cleanup_list_t* lh;
+
 	wtree_iterBaseNode(&cachep->root, oncleanup, cachep);
 	while (!cdsl_slistIsEmpty(&cachep->cleanup_list)) {
 		lh = (cleanup_list_t*) cdsl_slistDequeue(&cachep->cleanup_list);
@@ -246,12 +246,14 @@ static void wt_cache_dstr(void* cache) {
 		printf("some seg lost : %u / %lu\n", cachep->base_sz,
 				cachep->total_sz);
 	}
-	munmap(cachep, cachep->base_sz);
+	cache = (void*) ((size_t)( cache + sizeof(wt_cache_t)) - cachep->base_sz);
+	munmap(cache, cachep->base_sz);
 }
 
 static DECLARE_PURGE_CALLBACK(oncleanup) {
 	wt_cache_t* cache = (wt_cache_t*) arg;
-	cleanup_list_t* clhead = (cleanup_list_t*) node;
+	cleanup_list_t* clhead = (cleanup_list_t*) ((uint8_t*)node - offsetof(cleanup_list_t, node));
+//	cleanup_list_t* clhead = (cleanup_list_t*) node;
 	cdsl_slistNodeInit(&clhead->lhead);
 	cdsl_slistPutHead(&cache->cleanup_list, &clhead->lhead);
 	return TRUE;
