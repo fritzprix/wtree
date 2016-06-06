@@ -257,8 +257,6 @@ static void* ymalloc_test(void* arg)
 	report->malloc_time = dt;
 
 
-
-
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
@@ -272,7 +270,6 @@ static void* ymalloc_test(void* arg)
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->free_time = dt;
 
-	printf("start\n");
 	int loop_cnt;
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
@@ -282,16 +279,12 @@ static void* ymalloc_test(void* arg)
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
-		printf("finished\n");
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = (person_t*) cdsl_nrbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
 			}
-	//		printf("CNT : %d\n",cnt);
-			if(cnt == 5530)
-				wt_print();
 			wt_free(p);
 		}
 	}

@@ -45,6 +45,7 @@ wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz) {
 	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - sizeof(wtreeNode_t)];
 	node->size = sz;
 	node->base_size = 0;
+	node->left = node->right = NULL;
 	node->top = (uaddr_t) &chunk[sz];
 	return node;
 }
@@ -55,6 +56,7 @@ wtreeNode_t* wtree_baseNodeInit(uaddr_t addr, uint32_t sz) {
 	uint8_t* chunk = (uint8_t*) addr;
 	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - sizeof(wtreeNode_t)];
 	node->size = node->base_size = sz;
+	node->left = node->right = NULL;
 	node->top = (uaddr_t) &chunk[sz];
 	return node;
 }
@@ -74,21 +76,9 @@ void wtree_iterBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg) {
 void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 	if(!root || !node)
 		return;
-	BOOL base = FALSE;
 	wtreeNode_t cache;
 	memcpy(&cache, node, sizeof(wtreeNode_t));
-	if(node->base_size){
-		base = TRUE;
-		printf("segment is added @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) node, (uint64_t) node->top,node->size, (uint64_t) node->top - node->base_size);
-	}
 	root->entry = insert_rc(root,root->entry,node,compact);
-	if(node->base_size) {
-		if(!base) {
-			printf("WTF : CACHED : @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) cache.top - sizeof(wtreeNode_t), (uint64_t) cache.top, cache.size, (uint64_t) cache.top - cache.base_size);
-			printf("segment is added @%lx (TOP : %lx / SIZE : %u / BASE : %lx)\n",(uint64_t) node, (uint64_t) node->top,node->size, (uint64_t) node->top - node->base_size);
-		}
-		wtree_print(root);
-	}
 }
 
 
@@ -182,12 +172,13 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 		return item;
 	if(parent->top < item->top) {
 		if((item->top - item->size) == parent->top) {
-			if(item->base_size)
+			if(item->base_size) {
 				item->base_size += parent->base_size;
+			}
 			else if(parent->base_size) {
 				parent->right = insert_rc(root, parent->right, item, compact);
 				parent = merge_next(parent);
-				parent = resolve(root,parent, compact);
+				parent = resolve(root, parent, compact);
 				return parent;
 			}
 			item->size += parent->size;
@@ -202,8 +193,9 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 		return parent;
 	} else {
 		if((parent->top - parent->size) == item->top) {
-			if(parent->base_size)
+			if(parent->base_size) {
 				parent->base_size += item->base_size;
+			}
 			else if(item->base_size) {
 				parent->left = insert_rc(root, parent->left, item, compact);
 				parent = merge_prev(parent);
@@ -433,7 +425,6 @@ static wtreeNode_t* merge_from_leftend(wtreeNode_t* left, wtreeNode_t* merger) {
 			merger->base_size += left->base_size;
 		}
 		else if(merger->base_size) {
-			printf("here? leftend\n");
 			return left;
 		}
 		merger->size += left->size;
