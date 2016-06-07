@@ -221,9 +221,11 @@ static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode
 		return parent;
 	} else if((*grown)->top > parent->top) {
 		parent->right = grows_node(root, parent->right, grown, nsz);
+		parent = merge_next(parent);
 		parent = resolve(root, parent, FALSE);
 	} else {
 		parent->left = grows_node(root, parent->left, grown, nsz);
+		parent = merge_prev(parent);
 		parent = resolve(root, parent, FALSE);
 	}
 	return parent;

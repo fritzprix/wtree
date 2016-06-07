@@ -393,8 +393,8 @@ static nwtreeNode_t* grows_node(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtree
 		}
 		printf("found parent\n");
 		if(((nsz - (*grown)->size + sizeof(nwtreeNode_t)) < parent->size) && (!parent->base_size)) {
-			(*grown)->size = nsz;
 			parent->size -= (nsz - (*grown)->size);
+			(*grown)->size = nsz;
 			nwtreeNode_t* node = (nwtreeNode_t*) ((size_t) (*grown)->base + (*grown)->size);
 			memcpy(node, parent, sizeof(nwtreeNode_t));
 			return node;

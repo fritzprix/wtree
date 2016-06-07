@@ -23,6 +23,7 @@ SOURCE_ROOT=$(PROJECT_ROOT_DIR)/source
 TOOL_DIR=$(PROJECT_ROOT_DIR)/tools
 
 CONFIG_PY=$(TOOL_DIR)/jconfigpy/jconfigpy.py
+CONFIG_DIR:=./configs
 
 TEST_TARGET=yamalloc
 DEV_TEST_TARGET=yamalloc_dev
@@ -67,9 +68,13 @@ release : $(REL_CACHE_DIR) $(REL_STATIC_TARGET) $(REL_DYNAMIC_TARGET)
 
 test : $(REL_CACHE_DIR) $(DBG_CACHE_DIR) $(TEST_TARGET) $(DEV_TEST_TARGET) 
 
-
+ifeq ($(DEFCONF),)
 config : $(CONFIG_PY)
 	$(PYTHON) $(CONFIG_PY) -c -i config.json
+else
+config : $(CONFIG_PY)
+	$(PYTHON) $(CONFIG_PY) -s -i $(CONFIG_DIR)/$(DEFCONF) -t config.json -o .config  
+endif
 
 $(CONFIG_PY):
 	$(PIP) install jconfigpy -t $(TOOL_DIR)
