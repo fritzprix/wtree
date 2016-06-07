@@ -60,7 +60,7 @@ extern void wtree_purge(wtreeRoot_t* root);
 extern void wtree_iterBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg);
 extern void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact);
 extern void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact);
-extern void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t* node, uint32_t nsz);
+extern void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz);
 extern void wtree_print(wtreeRoot_t* root);
 extern uint32_t wtree_level(wtreeRoot_t* root);
 extern size_t wtree_nodeCount(wtreeRoot_t* root);

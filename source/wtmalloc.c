@@ -131,11 +131,27 @@ void* wt_realloc(void* chnk, size_t sz) {
 		return chnk;
 	}
 
+	wtreeNode_t header_presv;
+	memcpy(&header_presv, cur_sz, sizeof(wtreeNode_t));
+	node = wtree_nodeInit(cur_sz, *cur_sz + sizeof(uint32_t));
+	nchnk = wtree_grow_chunk(&ptcache->root, &node, sz);
+	if(!node) {
+		memcpy(nchnk + sizeof(wtreeNode_t), (node->top - node->size + sizeof(wtreeNode_t)),node->size - sizeof(wtreeNode_t));
+	}
+	memcpy(nchnk, &header_presv, sizeof(wtreeNode_t));
+	ptcache->free_sz -= (sz - node->size);
+	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
+	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
+	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
+	ptcache->free_cnt = 0;
+	return &((uint32_t*) nchnk)[1];
+	/*
 	nchnk = wt_malloc(sz);
-	memcpy(nchnk, chnk, *cur_sz);
+	memcpy(nchnk, chnk, *cur_sz - sizeof(uint32_t));
 	node = wtree_nodeInit(cur_sz, *cur_sz + sizeof(uint32_t));
 	wtree_addNode(&ptcache->root, node, TRUE);
 	return nchnk;
+	*/
 }
 
 void* wt_calloc(size_t sz) {

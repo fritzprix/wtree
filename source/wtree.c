@@ -13,7 +13,7 @@
 #include "cdsl_slist.h"
 
 static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact);
-static wtreeNode_t* grows_node(wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz);
+static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz);
 static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node);
 static void iterbase_rc(wtreeNode_t* node, wt_callback_t callback, void* arg);
 static size_t size_rc(wtreeNode_t* node);
@@ -97,31 +97,23 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	return chunk;
 }
 
-void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t* node, uint32_t nsz) {
-	if(!root || !node || !nsz)
+void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz) {
+	if(!root || !(*node) || !nsz)
 		return NULL;
 	if(!root->entry)
 		return NULL;
-	uint8_t* chunk = (uint8_t*) (node->top - node->size);
-	wtreeNode_t* cur = root->entry;
-	int32_t dsz = nsz - node->size;
-	if(dsz < 0)
-		return chunk;
-
-	while(cur) {
-		if(cur->top < node->top) {
-			cur = cur->right;
-		} else if((cur->top - cur->size) > node->top) {
-			cur = cur->left;
-		} else {
-			// origin node is found
-			chunk = &chunk[(int) (cur->top - cur->size)];
-			cur->size -= dsz;
-			return chunk;
-		}
+	if(!(nsz > (*node)->size))
+		return (void*) ((size_t) (*node)->top - (*node)->size);
+	root->entry = grows_node(root, root->entry, node, nsz);
+	root->entry = resolve(root, root->entry, TRUE);
+	if(*node) {
+//		printf("return ptr in grow chunk success!!! %lu\n",(uint64_t) *node);
+		return (void*) ((size_t) (*node)->top - (*node)->size);
 	}
-	return NULL;
+	return wtree_reclaim_chunk(root, nsz,TRUE);
 }
+
+
 
 void wtree_print(wtreeRoot_t* root) {
 	if(!root)
@@ -212,11 +204,11 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 		return parent;
 	}
 }
-
-static wtreeNode_t* grows_node(wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz) {
+static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz) {
 	if(!parent) {
-		grown = NULL;
-		return NULL;
+		parent = *grown;
+		*grown = NULL;
+		return parent;
 	}
 	if((*grown)->top == (parent->top - parent->size)) {
 		if((parent->size + sizeof(wtreeNode_t)) > (nsz - (*grown)->size)) {
@@ -228,12 +220,13 @@ static wtreeNode_t* grows_node(wtreeNode_t* parent, wtreeNode_t** grown, uint32_
 		grown = NULL;
 		return parent;
 	} else if((*grown)->top > parent->top) {
-		parent->right = grows_node(parent->right, grown, nsz);
+		parent->right = grows_node(root, parent->right, grown, nsz);
+		parent = resolve(root, parent, FALSE);
 	} else {
-		parent->left = grows_node(parent->left, grown, nsz);
+		parent->left = grows_node(root, parent->left, grown, nsz);
+		parent = resolve(root, parent, FALSE);
 	}
 	return parent;
-
 }
 
 
