@@ -21,20 +21,22 @@ extern "C" {
 #define QUANTUM_MAX             ((uint16_t) 128)
 #define MAP_OFFSET              ((uint16_t) 16)
 
-typedef struct nwtQNode nwtQNode_t;
+typedef struct quantum_node quantumNode_t;
 
-struct nwtQNode {
-	nwtQNode_t     *left,*right;
-	uint32_t        free_cnt;
-	uint16_t        quantum;
-	nrbtreeNode_t   glb_rbnode;
-	uint16_t        map[32];             // start of alloc bitmap, 1bit = 2 byte (1 : 16 bitmap)  4kbyte  64kbyte
+struct quantum_node {
+	quantumNode_t   *left,*right;
+	uint32_t         free_cnt;
+	uint16_t         quantum;
+	nrbtreeNode_t    addr_rbnode;
+	uint64_t         map[32];
 };
 
 typedef struct {
-	nrbtreeRoot_t   glb_rbroot;
-	nrbtreeRoot_t   quauntum_tree;
-} nwtQRoot_t;
+	nrbtreeNode_t    addr_rbroot;
+	nrbtreeNode_t    quantum_tree;
+}quantumRoot_t;
+
+extern void quantum_rootInit(quantumRoot_t* root);
 
 
 extern void nwtQ_rootInit(nwtQRoot_t* root);

@@ -107,7 +107,6 @@ void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz) {
 	root->entry = grows_node(root, root->entry, node, nsz);
 	root->entry = resolve(root, root->entry, TRUE);
 	if(*node) {
-//		printf("return ptr in grow chunk success!!! %lu\n",(uint64_t) *node);
 		return (void*) ((size_t) (*node)->top - (*node)->size);
 	}
 	return wtree_reclaim_chunk(root, nsz,TRUE);

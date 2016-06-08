@@ -11,7 +11,7 @@
 		"type":"config",
 		"path":"./depend/config.json"
 	},
-	"CONFIG_TRUE" : {
+	"CONFIGURED" : {
 		"type":"bool",
 		"default":"y",
 		"force":"y",
