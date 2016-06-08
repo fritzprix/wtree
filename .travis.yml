@@ -1,0 +1,12 @@
+sudo: required
+
+language: c
+
+services:
+     - docker
+
+install:
+     - docker build -t wtree_test .
+
+script:
+     - docker run wtree_test
