@@ -9,7 +9,7 @@
 #define INCLUDE_QUANTUM_H_
 
 
-
+#include "wtree.h"
 
 
 #ifdef __cplusplus
@@ -18,14 +18,15 @@ extern "C" {
 
 
 #define QUANTUM_SPACE           ((uint16_t) 2)
-#define QUANTUM_MAX             ((uint16_t) 128)
-#define MAP_OFFSET              ((uint16_t) 16)
+#define QUANTUM_MAX             ((uint16_t) 48)
+#define QUANTUM_COUNT_MAX		((uint16_t) 2048)
 
 
 
 typedef struct {
 	nrbtreeNode_t    addr_rbroot;
 	nrbtreeNode_t    quantum_tree;
+	wtreeRoot_t      quantum_pool;
 }quantumRoot_t;
 
 extern void quantum_root_init(quantumRoot_t* root);
