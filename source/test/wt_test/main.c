@@ -67,7 +67,8 @@ int main(void){
 			return 0;
 		}
 		else if(pid == 0) {
-			perf_test_oldmalloc();
+			wt_init();
+			perf_test_nmalloc();
 		}
 		else
 		{
@@ -76,8 +77,7 @@ int main(void){
 		}
 	}
 	else if(pid == 0) {
-		wt_init();
-		perf_test_nmalloc();
+		perf_test_oldmalloc();
 	}
 	else
 	{
