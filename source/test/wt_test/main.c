@@ -20,10 +20,10 @@
 #include "cdsl_nrbtree.h"
 #include "wtree.h"
 
-#define LOOP_CNT     100
-#define TEST_CNT     60000
+#define LOOP_CNT     60
+#define TEST_CNT     40000
 #define MAX_REQ_SIZE 4096
-#define TH_CNT       16
+#define TH_CNT       8
 
 typedef struct  {
 	nrbtreeNode_t node;
