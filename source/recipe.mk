@@ -5,4 +5,5 @@ OBJ-y+= nwtree \
 		bestfit\
 		buddy\
 		wtree\
-		wtmalloc
+		wtmalloc\
+		quantum
