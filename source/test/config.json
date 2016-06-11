@@ -3,9 +3,10 @@
 		"type":"enum",
 		"enum": [
 			"nwt_test",
-			"wt_test"
+			"wt_test",
+			"quantum_test"
 		],
-		"default": 0
+		"default": 1
 	},
 	"TEST_SUB_CONFIG" : {
 		"type":"config",

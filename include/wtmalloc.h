@@ -24,7 +24,7 @@ extern void wt_exit();
 extern void* wt_malloc(size_t sz);
 extern void wt_stats();
 extern void* wt_realloc(void* chnk, size_t sz);
-extern void* wt_calloc(size_t sz);
+extern void* wt_calloc(size_t sz,size_t cnt);
 extern void wt_print();
 extern uint32_t wt_level();
 extern void wt_free(void* chnk);

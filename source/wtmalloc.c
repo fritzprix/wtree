@@ -67,7 +67,7 @@ void wt_exit() {
  *  |  prev_sz  | cur_sz |  current usable memory area | prev_sz | next_sz | next usable memory area ....
  *  ****************************************************************************************************
  */
-void* wt_malloc(size_t sz) {
+__attribute__((malloc)) void* wt_malloc(size_t sz) {
 	if (!sz)
 		return NULL;
 	if (sz < sizeof(wtreeNode_t))
@@ -89,7 +89,7 @@ void* wt_malloc(size_t sz) {
 	return &chnk[sizeof(uint32_t)];
 }
 
-void* wt_realloc(void* chnk, size_t sz) {
+__attribute__((malloc)) void* wt_realloc(void* chnk, size_t sz) {
 	if (!chnk || !sz)
 		return NULL;
 	if (sz < sizeof(wtreeNode_t))
@@ -135,11 +135,14 @@ void* wt_realloc(void* chnk, size_t sz) {
 	return &((uint32_t*) nchnk)[1];
 }
 
-void* wt_calloc(size_t sz) {
-	void* chnk = wt_malloc(sz);
+__attribute__((malloc)) void* wt_calloc(size_t sz, size_t cnt) {
+	if(!sz || !cnt)
+		return NULL;
+	size_t rsz = sz * cnt;
+	void* chnk = wt_malloc(rsz);
 	if (!chnk)
 		return NULL;
-	memset(chnk, 0, sz);
+	memset(chnk, 0, rsz);
 	return chnk;
 }
 
