@@ -30,12 +30,13 @@ static wtreeNode_t* merge_from_rightend(wtreeNode_t* right,wtreeNode_t* merger);
 static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
-void wtree_rootInit(wtreeRoot_t* root,wt_unmap_func_t unmap_func) {
-	if(!root || !unmap_func)
+void wtree_rootInit(wtreeRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t unmapper) {
+	if(!root || !unmapper)
 		return;
 	root->entry = NULL;
 	root->sz = root->used_sz = 0;
-	root->unmap = unmap_func;
+	root->mapper = mapper;
+	root->unmapper = unmapper;
 }
 
 wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz) {
@@ -89,8 +90,14 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 		return NULL;
 	wtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->top;
-	if((largest->size - sizeof(wtreeNode_t)) < sz)
-		return NULL;
+	if((largest->size - sizeof(wtreeNode_t)) < sz) {
+		size_t seg_sz;
+		wtreeNode_t* nnode = root->mapper(sz,&seg_sz);
+		nnode = wtree_baseNodeInit(nnode, seg_sz);
+		root->entry = insert_rc(root, root->entry, nnode, FALSE);
+		largest = root->entry;
+		chunk = largest->top;
+	}
 	chunk = chunk - largest->size;
 	largest->size -= sz;
 	root->entry = resolve(root, root->entry, compact);
@@ -250,8 +257,8 @@ static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node) {
 			node = rotate_left(node);
 			node->left = purge_rc(root, node->left);
 		} else if(!node->left && !node->right) {
-			if(root->unmap) {
-				root->unmap(node->top - node->base_size, node->base_size);
+			if(root->unmapper) {
+				root->unmapper(node->top - node->base_size, node->base_size);
 				return NULL;
 			}
 		}
@@ -354,8 +361,8 @@ static wtreeNode_t* resolve(wtreeRoot_t* root, wtreeNode_t* parent, BOOL compact
 		if (!parent->size && !parent->base_size){
 			return NULL;
 		}else if(parent->size == parent->base_size) {
-			if(root->unmap && compact) {
-				root->unmap(parent->top - parent->base_size, parent->base_size);
+			if(root->unmapper && compact) {
+				root->unmapper(parent->top - parent->base_size, parent->base_size);
 				return NULL;
 			}
 		}

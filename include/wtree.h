@@ -18,7 +18,10 @@
 #define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(wtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct wtree_node wtreeNode_t;
+
+
 typedef int (*wt_unmap_func_t) (void* addr, size_t sz);
+typedef void* (*wt_map_func_t) (size_t sz, size_t* rsz);
 
 struct wtree_node {
 	wtreeNode_t *left, *right;
@@ -31,7 +34,8 @@ typedef struct  {
 	wtreeNode_t* entry;
 	size_t        sz;
 	size_t        used_sz;
-	wt_unmap_func_t   unmap;
+	wt_unmap_func_t   unmapper;
+	wt_map_func_t     mapper;
 }wtreeRoot_t;
 
 /*          |   @ address   128  |
@@ -53,7 +57,7 @@ typedef struct  {
 typedef BOOL (*wt_callback_t) (wtreeNode_t* node,void* arg);
 
 
-extern void wtree_rootInit(wtreeRoot_t* root,wt_unmap_func_t unmap_func);
+extern void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper);
 extern wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz);
 extern wtreeNode_t* wtree_baseNodeInit(uaddr_t addr, uint32_t sz);
 extern void wtree_purge(wtreeRoot_t* root);

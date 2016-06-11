@@ -54,30 +54,34 @@ struct quantum {
 
 struct quantum_node {
 	quantumNode_t   *left,*right;      // child tree nodes
+	quantumNode_t   *parent;
 	uint16_t         free_cnt;         // number of free quantum
 	uint16_t         qcnt;             // number of total available quantum
 	uint16_t         quantum;          // quantum class
+	void*            top;
 	nrbtreeNode_t    addr_rbnode;      // rbtree node for address lookup
 	uint64_t         map[32];          // bitmap
 };
 
-static int quantum_pool_unmap(void* addr, size_t sz);
 static void quantum_init(quantum_t* quantum, uint16_t qsz);
 static void quantum_add(quantumRoot_t* root, quantum_t* quantum);
 static void quantum_node_init(quantumNode_t* node, uint16_t qsz,size_t hsz);
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode);
 static quantumNode_t* insert_rc(quantumNode_t* parent, quantumNode_t* item);
 static void* quantum_node_alloc_unit(quantumNode_t* node);
+static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk);
 static quantumNode_t* quantum_node_rotate_right(quantumNode_t* qnode);
 static quantumNode_t* quantum_node_rotate_left(quantumNode_t* qnode);
 
 
-void quantum_root_init(quantumRoot_t* root) {
+void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper) {
 	if(!root)
 		return;
+	root->mapper = mapper;
+	root->unmapper = unmapper;
 	cdsl_nrbtreeRootInit(&root->addr_rbroot);
 	cdsl_nrbtreeRootInit(&root->quantum_tree);
-	wtree_rootInit(&root->quantum_pool,quantum_pool_unmap);
+	wtree_rootInit(&root->quantum_pool,mapper, unmapper);
 }
 
 void quantum_add_segment(quantumRoot_t* root, void* addr,size_t sz) {
@@ -103,7 +107,8 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, size_t sz) {
 	if(!quantum) {
 		// there is no quantum for given guantum size
 		while(!(qnode = wtree_reclaim_chunk(&root->quantum_pool, qsz * 64 * 32, TRUE))) {
-			uint8_t* seg = mmap(NULL, SEGMENT_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+//			uint8_t* seg = mmap(NULL, SEGMENT_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			uint8_t* seg = root->mapper(SEGMENT_SIZE, NULL);
 			quantum_add_segment(root, seg, SEGMENT_SIZE);
 		}
 		quantum_node_init(qnode, qsz, sizeof(quantumNode_t) + sizeof(quantum_t));
@@ -125,20 +130,50 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, size_t sz) {
 	return chnk;
 }
 
-int quantum_return_chunk(void* chunk) {
+int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	if(!chunk)
 		return FALSE;
+	nrbtreeNode_t* cnode = root->addr_rbroot.entry;
+	quantumNode_t* qnode;
+	while(cnode) {
+		qnode = container_of(cnode,quantumNode_t, addr_rbnode);
+		if((size_t) chunk < (size_t) qnode) {
+			cnode = cdsl_nrbtreeGoLeft(cnode);
+		} else if((size_t) chunk > (size_t) qnode->top) {
+			cnode = cdsl_nrbtreeGoRight(cnode);
+		} else {
+			quantum_node_free_unit(qnode, chunk);
+			if(qnode->free_cnt == qnode->qcnt) {
+				if(qnode->left || qnode->right) {
+					return TRUE;
+				}
+
+				// free quantum node to quantum pool
+				quantumNode_t* parent = qnode->parent;
+				if(parent->right == qnode) {
+					parent->right = NULL;
+				} else if(parent->left == qnode){
+					parent->left = NULL;
+				} else {
+					fprintf(stderr, "Quantum Corruption happend : Bad Parent Reference");
+					exit(-1);
+				}
+				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
+				wtreeNode_t* free_q = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
+				wtree_addNode(&root->quantum_pool,free_q,TRUE);
+			}
+		}
+	}
 	return TRUE;
 }
+
+
 
 void quantum_purge_cache(quantumRoot_t* root) {
 
 }
 
 
-static int quantum_pool_unmap(void* addr, size_t sz) {
-	return 0;
-}
 
 static void quantum_init(quantum_t* quantum, uint16_t qsz) {
 	if(!quantum)
@@ -152,8 +187,10 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz,size_t hsz) {
 	if(!node)
 		return;
 	node->quantum = qsz;
+	node->parent = NULL;
 	node->free_cnt = node->qcnt = QUANTUM_COUNT_MAX;
 	node->left = node->right = NULL;
+	node->top = (void*) (((size_t) node) + qsz * QUANTUM_COUNT_MAX);
 	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (size_t) node);
 	memset(node->map, 0, sizeof(uint64_t) * 32);
 	uint64_t msk = 1;
@@ -196,6 +233,7 @@ static quantumNode_t* insert_rc(quantumNode_t* parent, quantumNode_t* item) {
 		parent->right = insert_rc(parent->right, item);
 		if(!parent->right)
 			return parent;
+		parent->right->parent = parent;
 		if(parent->right->free_cnt > parent->free_cnt) {
 			parent = quantum_node_rotate_left(parent);
 		}
@@ -203,6 +241,7 @@ static quantumNode_t* insert_rc(quantumNode_t* parent, quantumNode_t* item) {
 		parent->left = insert_rc(parent->left, item);
 		if(!parent->left)
 			return parent;
+		parent->left->parent = parent;
 		if(parent->left->free_cnt > parent->free_cnt) {
 			parent = quantum_node_rotate_right(parent);
 		}
@@ -218,8 +257,13 @@ static quantumNode_t* quantum_node_rotate_right(quantumNode_t* qnode) {
 	if(!qnode || !qnode->left)
 		return qnode;
 	quantumNode_t* top = qnode->left;
+	top->parent = qnode->parent;
+
 	qnode->left = top->right;
+	top->right->parent = qnode;
+
 	top->right = qnode;
+	qnode->parent = top;
 	return top;
 }
 
@@ -227,14 +271,21 @@ static quantumNode_t* quantum_node_rotate_left(quantumNode_t* qnode) {
 	if(!qnode || !qnode->right)
 		return qnode;
 	quantumNode_t* top = qnode->right;
+	top->parent = qnode->parent;
+
 	qnode->right = top->left;
+	top->left->parent = qnode;
+
 	top->left = qnode;
+	qnode->parent = top;
 	return top;
 }
 
 
 static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 	if(!qnode)
+		return NULL;
+	if(!qnode->free_cnt)
 		return NULL;
 	uint16_t offset = 0;
 	uint64_t* cmap = qnode->map;
@@ -251,5 +302,22 @@ static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 		offset++;
 	}
 	*cmap &= ~imap;
+	qnode->free_cnt--;
 	return &((uint8_t*) qnode)[offset];
 }
+
+
+static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk) {
+	if(!qnode)
+		return;
+	size_t offset = (size_t)chunk - (size_t)qnode;
+	uint16_t bmoffset = offset / qnode->quantum;
+	uint64_t* cmap = qnode->map;
+	while(!(bmoffset < 64)) {
+		cmap++;
+		bmoffset -= 64;
+	}
+	*cmap |= (1 << bmoffset);
+	qnode->free_cnt++;
+}
+

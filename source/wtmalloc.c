@@ -48,6 +48,7 @@ typedef struct {
 
 static void wt_cache_dstr(void* cache);
 static DECLARE_PURGE_CALLBACK(oncleanup);
+static void* map_wrapper(size_t sz, size_t* rsz);
 static int unmap_wrapper(void* addr, size_t sz);
 static wt_cache_t* wt_cache_bootstrap(size_t init_sz);
 
@@ -80,6 +81,7 @@ void* wt_malloc(size_t sz) {
 		ptcache = wt_cache_bootstrap(sz);
 		pthread_setspecific(cache_key, ptcache);
 	}
+	/*
 	while (!(chnk = wtree_reclaim_chunk(&ptcache->root, sz, TRUE))) {
 		wtreeNode_t* nnode;
 		while (seg_sz < sz)
@@ -93,7 +95,8 @@ void* wt_malloc(size_t sz) {
 		wtree_addNode(&ptcache->root, nnode,TRUE);
 		ptcache->total_sz += seg_sz;
 		ptcache->free_sz += seg_sz;
-	}
+	}*/
+	chnk = wtree_reclaim_chunk(&ptcache->root, sz, TRUE);
 	ptcache->free_sz -= sz;
 	*((uint32_t*) chnk) = sz - sizeof(uint32_t); // set current chunk size before the usable memory area
 	*((uint32_t*) &chnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
@@ -233,7 +236,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
 	cache->free_cnt = 0;
 	wtreeNode_t* seg_node;
-	wtree_rootInit(&cache->root, unmap_wrapper);
+	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper);
 	cache->purge_hit_cnt = 0;
 	seg_node = wtree_nodeInit(chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);
@@ -280,6 +283,18 @@ static int unmap_wrapper(void* addr, size_t sz) {
 	ptcache->free_sz -= sz;
 	munmap(addr,sz);
 	return 0;
+}
+
+static void* map_wrapper(size_t sz, size_t* rsz) {
+	size_t seg_sz = SEGMENT_SIZE;
+	uint8_t* chnk;
+	while(seg_sz < sz) seg_sz <<= 1;
+	chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if(rsz)
+		*rsz = seg_sz;
+	ptcache->total_sz += seg_sz;
+	ptcache->free_sz += seg_sz;
+	return chnk;
 }
 
 
