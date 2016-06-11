@@ -81,21 +81,6 @@ void* wt_malloc(size_t sz) {
 		ptcache = wt_cache_bootstrap(sz);
 		pthread_setspecific(cache_key, ptcache);
 	}
-	/*
-	while (!(chnk = wtree_reclaim_chunk(&ptcache->root, sz, TRUE))) {
-		wtreeNode_t* nnode;
-		while (seg_sz < sz)
-			seg_sz <<= 1; // calc min seg size , which is multiple of SEGMENT_SIZE, larger than requested sz
-		chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if (!chnk) {
-			perror("memory depleted\n");
-			exit(-1);
-		}
-		nnode = wtree_baseNodeInit(chnk, seg_sz);
-		wtree_addNode(&ptcache->root, nnode,TRUE);
-		ptcache->total_sz += seg_sz;
-		ptcache->free_sz += seg_sz;
-	}*/
 	chnk = wtree_reclaim_chunk(&ptcache->root, sz, TRUE);
 	ptcache->free_sz -= sz;
 	*((uint32_t*) chnk) = sz - sizeof(uint32_t); // set current chunk size before the usable memory area
@@ -148,13 +133,6 @@ void* wt_realloc(void* chnk, size_t sz) {
 	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
 	ptcache->free_cnt = 0;
 	return &((uint32_t*) nchnk)[1];
-	/*
-	nchnk = wt_malloc(sz);
-	memcpy(nchnk, chnk, *cur_sz - sizeof(uint32_t));
-	node = wtree_nodeInit(cur_sz, *cur_sz + sizeof(uint32_t));
-	wtree_addNode(&ptcache->root, node, TRUE);
-	return nchnk;
-	*/
 }
 
 void* wt_calloc(size_t sz) {
@@ -199,7 +177,6 @@ void wt_free(void* chnk) {
 	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
 	node = wtree_nodeInit(chk, *chnk_sz + sizeof(uint32_t));
 	wtree_addNode(&ptcache->root, node, TRUE);
-//	if(ptcache->free_sz > ((ptcache->total_sz * 15) >> 4)) {
 	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
 		ptcache->purge_hit_cnt++;
 		if(ptcache->purge_hit_cnt > ((1 << 8)) ) {
@@ -272,7 +249,6 @@ static void wt_cache_dstr(void* cache) {
 static DECLARE_PURGE_CALLBACK(oncleanup) {
 	wt_cache_t* cache = (wt_cache_t*) arg;
 	cleanup_list_t* clhead = (cleanup_list_t*) ((uint8_t*)node - offsetof(cleanup_list_t, node));
-//	cleanup_list_t* clhead = (cleanup_list_t*) node;
 	cdsl_slistNodeInit(&clhead->lhead);
 	cdsl_slistPutHead(&cache->cleanup_list, &clhead->lhead);
 	return TRUE;
@@ -290,6 +266,10 @@ static void* map_wrapper(size_t sz, size_t* rsz) {
 	uint8_t* chnk;
 	while(seg_sz < sz) seg_sz <<= 1;
 	chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if(!chnk) {
+		fprintf(stderr, "Out Of Memory");
+		exit(-1);
+	}
 	if(rsz)
 		*rsz = seg_sz;
 	ptcache->total_sz += seg_sz;
