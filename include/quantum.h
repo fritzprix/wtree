@@ -32,7 +32,7 @@ extern void quantum_root_init(quantumRoot_t* root,wt_map_func_t mapper, wt_unmap
 extern void* quantum_reclaim_chunk(quantumRoot_t* root, size_t sz);
 extern int quantum_free_chunk(quantumRoot_t* root,void* chunk);
 extern void quantum_purge_cache(quantumRoot_t* root);
-
+extern void quantum_print(quantumRoot_t* root);
 
 
 #ifdef __cplusplus

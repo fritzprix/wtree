@@ -15,13 +15,22 @@
 
 static void* map_segment(size_t req_sz, size_t* res_sz);
 static int unmap_segment(void* addr, size_t sz);
+static uint16_t* mem[10000];
 
 int main() {
 	printf("started\n");
 	quantumRoot_t root;
 	quantum_root_init(&root, map_segment,unmap_segment);
-	void* hello = quantum_reclaim_chunk(&root, 2);
-	quantum_free_chunk(&root, hello);
+	int i;
+	for(i = 0;i < 10000;i++) {
+		mem[i] = quantum_reclaim_chunk(&root, sizeof(uint16_t));
+	}
+	quantum_print(&root);
+	for(i = 0;i < 10000;i++) {
+		quantum_free_chunk(&root, mem[i]);
+	}
+	quantum_print(&root);
+	printf("finished\n");
 	return 0;
 }
 
