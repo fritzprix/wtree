@@ -82,7 +82,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz,size_t hsz, BOOL
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode);
 static void* quantum_node_alloc_unit(quantumNode_t* node);
 static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk);
-static void quantum_node_resolve_upward(quantumNode_t* parent, quantumNode_t* child, int dir);
+static void quantum_node_resolve_upward(quantumRoot_t* root, quantumNode_t* parent, quantumNode_t* child, quantumNode_t* child_hint);
 static quantumNode_t* quantum_node_insert_rc(quantumNode_t* parent, quantumNode_t* item);
 static quantumNode_t* quantum_node_rotate_right(quantumNode_t* qnode);
 static quantumNode_t* quantum_node_rotate_left(quantumNode_t* qnode);
@@ -119,9 +119,9 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, size_t sz) {
 	quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, qsz);
 	if(!quantum) {
 		// there is no quantum for given guantum size
+		quantum = wtree_reclaim_chunk(&root->quantum_pool, sizeof(quantum_t),FALSE);
 		qnode = wtree_reclaim_chunk(&root->quantum_pool, qsz * QMAP_UNIT_OFFSET * QMAP_COUNT, TRUE);
-		quantum_node_init(qnode, qsz, sizeof(quantumNode_t) + sizeof(quantum_t) ,TRUE);
-		quantum = (quantum_t*) &qnode[1];
+		quantum_node_init(qnode, qsz, sizeof(quantumNode_t),FALSE);
 		quantum_init(quantum, qsz);
 		quantum_add(root,quantum);
 		quantum_node_add(root, quantum, qnode);
@@ -157,14 +157,16 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 			 *  free chunk
 			 */
 			quantum_node_free_unit(qnode, chunk);
+			quantumNode_t* pparent = qnode->parent;
 			if(qnode->free_cnt == qnode->qcnt) {
 				/*
 				 * if quantum node is completely full
 				 * and leaf node, we can free it to cache
 				 */
-				if(qnode->left || qnode->right)
+				if(qnode->left || qnode->right) {
+					quantum_node_resolve_upward(root, pparent, qnode, qnode);
 					return TRUE;
-
+				}
 				if(!qnode->parent) {
 					// top node has no parent
 					return TRUE;
@@ -188,7 +190,10 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				// return memory segment into cache
 				wtreeNode_t* free_q = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE);
+				quantum_node_resolve_upward(root, pparent, NULL, qnode);
+				return TRUE;
 			}
+			quantum_node_resolve_upward(root, pparent, qnode, qnode);
 			return TRUE;
 		}
 	}
@@ -228,7 +233,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz,size_t hsz, BOOL
 	node->qcnt = QUANTUM_COUNT_MAX;
 	node->left = node->right = NULL;
 	node->top = (void*) (((size_t) node) + qsz * QUANTUM_COUNT_MAX);
-	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (size_t) node);
+	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (trkey_t) node);
 	memset(node->map, 0xff, sizeof(qmap_t) *  QMAP_COUNT);
 	qmap_t msk = 1;
 	qmap_t *map = node->map;
@@ -374,8 +379,61 @@ static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk) {
 	qnode->free_cnt++;
 }
 
-static void quantum_node_resolve_upward(quantumNode_t* parent, quantumNode_t* child, int dir) {
-
+static void quantum_node_resolve_upward(quantumRoot_t* root, quantumNode_t* parent, quantumNode_t* child, quantumNode_t* child_hint) {
+	if(!root)
+		return;
+	if(!parent)
+		return;
+	/*
+	 *  1. update child node of parent
+	 *  2. if the size of node is not inorder rotate
+	 */
+	if(child_hint == parent->left) {
+		parent->left = child;
+	} else if(child_hint == parent->right) {
+		parent->right = child;
+	}
+	if(parent->right && parent->left) {
+		if((parent->right->free_cnt > parent->free_cnt) &&
+		   (parent->left->free_cnt > parent->free_cnt)) {
+			if(parent->right->free_cnt > parent->left->free_cnt) {
+				parent = quantum_node_rotate_left(parent);
+				quantum_node_resolve_upward(root, parent->parent, parent, parent->left);
+			} else {
+				parent = quantum_node_rotate_right(parent);
+				quantum_node_resolve_upward(root, parent->parent, parent, parent->right);
+			}
+		} else {
+			return;
+		}
+	} else if(parent->right) {
+		if(parent->right->free_cnt > parent->free_cnt) {
+			parent = quantum_node_rotate_left(parent);
+			quantum_node_resolve_upward(root, parent->parent, parent, parent->left);
+		} else {
+			return;
+		}
+	} else if(parent->left) {
+		if(parent->left->free_cnt > parent->free_cnt) {
+			parent = quantum_node_rotate_right(parent);
+			quantum_node_resolve_upward(root, parent->parent, parent, parent->right);
+		} else {
+			return;
+		}
+	} else {
+		if(parent->free_cnt == parent->qcnt) {
+			if(!cdsl_nrbtreeDelete(&root->addr_rbroot, (trkey_t) parent))	{
+				fprintf(stderr, "Heap Corrupted : Invalid qnode[%lx] in address tree\n",parent);
+				exit(-1);
+			}
+			quantumNode_t* pparent = parent->parent;
+			wtreeNode_t* qpool = wtree_nodeInit(parent,(size_t) parent->top - (size_t) parent);
+			wtree_addNode(&root->quantum_pool,qpool, TRUE);
+			quantum_node_resolve_upward(root, pparent, NULL, parent);
+			return;
+		}
+		quantum_node_resolve_upward(root, parent->parent, parent, parent);
+	}
 }
 
 
@@ -413,7 +471,7 @@ static void quantum_node_print(quantumNode_t* qnode,int level) {
 	int l = level;
 	while(l--)
 		printf("\t");
-	printf("{Q : %d | usage : %u /  %u } (@ %u)\n",qnode->quantum, qnode->free_cnt, qnode->qcnt,level );
+	printf("@ %lx {Q : %d | usage : %u /  %u } (%u)\n",qnode, qnode->quantum, qnode->free_cnt, qnode->qcnt,level );
 }
 
 

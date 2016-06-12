@@ -20,7 +20,7 @@
 #include "cdsl_nrbtree.h"
 #include "wtree.h"
 
-#define LOOP_CNT     60
+#define LOOP_CNT     40
 #define TEST_CNT     40000
 #define MAX_REQ_SIZE 4096
 #define TH_CNT       8
@@ -68,8 +68,7 @@ int main(void){
 			return 0;
 		}
 		else if(pid == 0) {
-			wt_init();
-			perf_test_nmalloc();
+			perf_test_oldmalloc();
 		}
 		else
 		{
@@ -78,7 +77,8 @@ int main(void){
 		}
 	}
 	else if(pid == 0) {
-		perf_test_oldmalloc();
+		wt_init();
+		perf_test_nmalloc();
 	}
 	else
 	{
