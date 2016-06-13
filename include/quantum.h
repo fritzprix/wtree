@@ -29,7 +29,7 @@ typedef struct {
 }quantumRoot_t;
 
 extern void quantum_root_init(quantumRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t unmapper);
-extern void* quantum_reclaim_chunk(quantumRoot_t* root, size_t sz);
+extern void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz);
 extern int quantum_free_chunk(quantumRoot_t* root,void* chunk);
 extern void quantum_purge_cache(quantumRoot_t* root);
 extern void quantum_print(quantumRoot_t* root);

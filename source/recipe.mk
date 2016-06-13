@@ -3,7 +3,6 @@ INC-y+=./include
 OBJ-y+= nwtree \
 		nwtmalloc\
 		bestfit\
-		buddy\
 		wtree\
 		wtmalloc\
 		quantum
