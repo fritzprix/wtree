@@ -195,6 +195,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				}
 
 				// delete quantum node from address lookup tree
+				printf("node freed "); quantum_node_print(qnode,0);
 				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
 				wtreeNode_t* free_q = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE);
@@ -203,7 +204,8 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 			return TRUE;
 		}
 	}
-	fprintf(stderr, "invalid chunk is freed\n");
+	fprintf(stderr, "invalid chunk is freed %lx\n", (size_t) chunk);
+	quantum_print(root);
 	exit(-1);
 }
 
@@ -239,7 +241,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz, ssize_t hsz, BO
 		return;
 	node->quantum = qsz;
 	node->parent = NULL;
-	node->qcnt = QUANTUM_COUNT_MAX;
+	node->qcnt = QUANTUM_COUNT_MAX - 1;
 	node->left = node->right = NULL;
 	node->top = (void*) (((size_t) node) + qsz * QUANTUM_COUNT_MAX);
 	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (trkey_t) node);
@@ -435,17 +437,6 @@ static void quantum_node_print(quantumNode_t* qnode,int level) {
 	while(l--)
 		printf("\t");
 	printf("@ %lx ~ %lx {Q : %d | usage : %u /  %u } (%u)\n",(size_t) qnode, (size_t) qnode->top ,qnode->quantum, qnode->free_cnt, qnode->qcnt,level );
-	/*
-	qmap_t cmap;
-	int i,j = 0;
-	for(i = 0;i < QMAP_COUNT;i++) {
-		cmap = qnode->map[i];
-		for(j = 0;j < QMAP_UNIT_OFFSET;j++) {
-			printf("%lu",cmap & 1);
-			cmap >>= 1;
-		}
-	}
-	printf("\n");*/
 }
 
 

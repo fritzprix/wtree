@@ -42,9 +42,8 @@ int main() {
 	nrbtreeNode_t* node;
 	trkey_t key = 0;
 	for(i = 0;i < 100000;i++) {
-		rn  = rand() % 0xffffff;
+		rn  = rand_r(&seed) % 0xffffff;
 		req_sz = base_sz + rn % rand_sz;
-		printf("request Size : %lu\n",req_sz);
 		node = quantum_reclaim_chunk(&root, base_sz + rn % rand_sz);
 
 		if(!node) {
@@ -56,9 +55,9 @@ int main() {
 		cdsl_nrbtreeInsert(&rbroot, node);
 //		printf("loop : %d\n",i);
 	}
+	quantum_print(&root);
 	end = clock();
 	for(i = 0;i < 100000;i++) {
-		printf("loop : %d\n",i);
 		node = cdsl_nrbtreeDeleteMax(&rbroot);
 		if(!node) {
 			fprintf(stderr, "Memory Chunk Lost\n");
