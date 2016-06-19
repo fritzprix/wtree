@@ -7,6 +7,7 @@
 
 #include "quantum.h"
 #include "cdsl_nrbtree.h"
+#include "wtree.h"
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -57,6 +58,11 @@ struct quantum {
 	quantumNode_t    *entry;
 };
 
+typedef struct {
+	slistNode_t	clr_lhead;
+	wtreeNode_t node;
+} cleanupNode_t;
+
 struct quantum_node {
 	quantumNode_t   *left,*right;      // child tree nodes
 	quantumNode_t   *parent;           // parent
@@ -65,18 +71,21 @@ struct quantum_node {
 	uint16_t         quantum;          // quantum class
 	void*            top;              // top
 	nrbtreeNode_t    addr_rbnode;      // rbtree node for address lookup
-	qmap_t           map[QMAP_COUNT];  // bitmap
+	union {
+		qmap_t           map[QMAP_COUNT];  // bitmap
+		slistNode_t		 clr_lhead;
+	};
 };
 
 const size_t QMAP_UNIT_OFFSET = (sizeof(qmap_t) << 3);
 
-static DECLARE_TRAVERSE_CALLBACK(for_each_qnode);
+static DECLARE_TRAVERSE_CALLBACK(try_purge_for_each_qnode);
 static DECLARE_TRAVERSE_CALLBACK(for_each_quantum_print);
+static DECLARE_WTREE_TRAVERSE_CALLBACK(force_purge_for_each_pool);
 
 
 static void quantum_init(quantum_t* quantum, uint16_t qsz);
 static void quantum_add(quantumRoot_t* root, quantum_t* quantum);
-static void quantum_purge(quantum_t* quantum);
 
 static void quantum_node_init(quantumNode_t* node, uint16_t qsz,ssize_t hsz, BOOL base);
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode);
@@ -92,9 +101,11 @@ static void quantum_node_print(quantumNode_t* qnode,int level);
 void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper) {
 	if(!root)
 		return;
+	root->unmapper = unmapper;
 	cdsl_nrbtreeRootInit(&root->addr_rbroot);
 	cdsl_nrbtreeRootInit(&root->quantum_tree);
 	wtree_rootInit(&root->quantum_pool,mapper, unmapper);
+	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;
 	uint8_t* init_seg = mapper(1, &seg_sz);
@@ -209,20 +220,49 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	exit(-1);
 }
 
-
-
-void quantum_purge_cache(quantumRoot_t* root) {
+void quantum_try_purge_cache(quantumRoot_t* root) {
 	if(!root)
 		return;
-	cdsl_nrbtreeTraverse(&root->quantum_tree, for_each_qnode, ORDER_INC);
+	cdsl_nrbtreeTraverse(&root->addr_rbroot, try_purge_for_each_qnode, ORDER_INC, root);
+	quantumNode_t* qnode;
+	wtreeNode_t* pnode;
+	while((qnode = (quantumNode_t*) cdsl_slistRemoveHead(&root->clr_lentry))) {
+		qnode = container_of(qnode, quantumNode_t, clr_lhead);
+		if(!cdsl_nrbtreeDelete(&root->addr_rbroot, (size_t) qnode)) {
+			fprintf(stderr, "Null node is detected in purge op.");
+			exit(-1);
+		}
+		pnode = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
+		wtree_addNode(&root->quantum_pool, pnode, TRUE);
+	}
+	wtree_purge(&root->quantum_pool);
 }
+
+void quantum_cleanup(quantumRoot_t* root) {
+	/*
+	 * cleanup force memory mapped to unmap,
+	 * after cleanup invoked, referencing memory allocated raise segmentation fault
+	 */
+	if(!root)
+		return;
+	slistEntry_t clr_entry;
+	wt_unmap_func_t unmapper = root->unmapper;
+	cdsl_slistEntryInit(&clr_entry);
+	wtree_traverseBaseNode(&root->quantum_pool, force_purge_for_each_pool, &clr_entry);
+	cleanupNode_t* clr_node;
+	while((clr_node = (cleanupNode_t*) cdsl_slistRemoveHead(&clr_entry))) {
+		clr_node = container_of(clr_node, cleanupNode_t, clr_lhead);
+		unmapper(clr_node->node.top - clr_node->node.base_size,clr_node->node.base_size);
+	}
+}
+
 
 
 void quantum_print(quantumRoot_t* root) {
 	if(!root)
 		return;
 	printf("\n");
-	cdsl_nrbtreeTraverse(&root->quantum_tree, for_each_quantum_print, ORDER_INC);
+	cdsl_nrbtreeTraverse(&root->quantum_tree, for_each_quantum_print, ORDER_INC, root);
 	printf("\n");
 }
 
@@ -245,6 +285,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz, ssize_t hsz, BO
 	node->left = node->right = NULL;
 	node->top = (void*) (((size_t) node) + qsz * QUANTUM_COUNT_MAX);
 	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (trkey_t) node);
+	cdsl_slistNodeInit(&node->clr_lhead);
 	memset(node->map, 0xff, sizeof(qmap_t) *  QMAP_COUNT);
 	qmap_t msk = 1;
 	qmap_t *map = node->map;
@@ -361,14 +402,9 @@ static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 		cmap++;
 		offset += QMAP_UNIT_OFFSET;
 	}
-	if((size_t) cmap > (size_t) &qnode->map[31])
-	{
-		fprintf(stderr, "wtf!!\n");
-		exit(-1);
-	}
 	vmap = *cmap;
 	if(!vmap) {
-		fprintf(stderr, "something is wrong\n");
+		fprintf(stderr, "bitmap is corrupted\n");
 		quantum_node_print(qnode, 0);
 		exit(-1);
 	}
@@ -386,41 +422,98 @@ static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 	return chnk;
 }
 
-
-
 static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk) {
 	if(!qnode)
 		return;
 	size_t offset = (size_t)chunk - (size_t)qnode;
 	uint16_t bmoffset = offset / qnode->quantum;
 	qmap_t* cmap = qnode->map;
-	while(!(bmoffset < 64)) {
+	while(!(bmoffset < QMAP_UNIT_OFFSET)) {
 		cmap++;
-		bmoffset -= 64;
+		bmoffset -= QMAP_UNIT_OFFSET;
 	}
 	*cmap |= ((qmap_t) 1 << bmoffset);
 	qnode->free_cnt++;
 }
 
-static void quantum_purge(quantum_t* quantum) {
 
-}
-
-static DECLARE_TRAVERSE_CALLBACK(for_each_qnode) {
+static DECLARE_TRAVERSE_CALLBACK(try_purge_for_each_qnode) {
 	if(!node)
-		return FALSE;
-	quantum_t* quantum = (quantum_t*) container_of(node, quantumNode_t, addr_rbnode);
-	quantum_purge(quantum);
-	return TRUE;
+		return TRAVERSE_BREAK;
+	quantumNode_t* qnode = container_of(node, quantumNode_t, addr_rbnode);
+	quantumRoot_t* root = (quantumRoot_t*) arg;
+
+	if(qnode->free_cnt == qnode->qcnt) {
+		if(qnode->left && qnode->right) {
+			/*
+			 * can't be purged
+			 */
+			return TRAVERSE_OK;
+		} else if(qnode->left) {
+			if(qnode->parent) {
+				if(qnode->parent->right == qnode) {
+					qnode->parent->right = qnode->left;
+					qnode->left->parent = qnode->parent;
+				} else if(qnode->parent->left == qnode) {
+					qnode->parent->left = qnode->left;
+					qnode->left->parent = qnode->parent;
+				} else {
+					fprintf(stderr, "Invalid Parent Node in quantum tree purge op.\n");
+					exit(-1);
+				}
+			} else {
+				qnode->left->parent = qnode->parent;
+			}
+		} else if(qnode->right) {
+			if(qnode->parent) {
+				if(qnode->parent->right == qnode) {
+					qnode->parent->right = qnode->right;
+					qnode->right->parent = qnode->parent;
+				} else if(qnode->parent->left == qnode) {
+					qnode->parent->left = qnode->right;
+					qnode->right->parent = qnode->parent;
+				} else {
+					fprintf(stderr, "Invalid Parent Node in quantum tree purge op.\n");
+					exit(-1);
+				}
+			} else {
+				qnode->right->parent = qnode->parent;
+			}
+		} else {
+			if(qnode->parent) {
+				if(qnode->parent->right == qnode) {
+					qnode->parent->right = NULL;
+				} else if(qnode->parent->left == qnode) {
+					qnode->parent->left = NULL;
+				} else {
+					fprintf(stderr, "Invalid Parent Node in quantum tree purge op.\n");
+					exit(-1);
+				}
+			}
+		}
+		cdsl_slistPutHead(&root->clr_lentry, &qnode->clr_lhead);
+	}
+	return TRAVERSE_OK;
 }
+
 
 
 static DECLARE_TRAVERSE_CALLBACK(for_each_quantum_print) {
 	if(!node)
-		return MSG_BREAK_TRAVERSE;
+		return TRAVERSE_BREAK;
 	quantum_t* qt = container_of(node, quantum_t, qtree_node);
 	quantum_node_print_rc(qt->entry, 0);
 	return 0;
+}
+
+static DECLARE_WTREE_TRAVERSE_CALLBACK(force_purge_for_each_pool) {
+	if(!node)
+		return FALSE;
+	slistEntry_t* clr_list = (slistEntry_t*) arg;
+	cleanupNode_t* clnode =  (cleanupNode_t*) ((size_t) node - offsetof(cleanupNode_t,node));
+	cdsl_slistNodeInit(&clnode->clr_lhead);
+	cdsl_slistPutHead(clr_list, &clnode->clr_lhead);
+	return TRUE;
 }
 
 

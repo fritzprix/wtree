@@ -15,7 +15,7 @@
 
 #include "cdsl_slist.h"
 
-#define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(wtreeNode_t* node,void* arg)
+#define DECLARE_WTREE_TRAVERSE_CALLBACK(fn)          BOOL  fn(wtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct wtree_node wtreeNode_t;
 
@@ -61,7 +61,7 @@ extern void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_fun
 extern wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz);
 extern wtreeNode_t* wtree_baseNodeInit(uaddr_t addr, uint32_t sz);
 extern void wtree_purge(wtreeRoot_t* root);
-extern void wtree_iterBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg);
+extern void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg);
 extern void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact);
 extern void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact);
 extern void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz);

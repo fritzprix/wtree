@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define DECLARE_PURGE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node,void* arg)
+#define DECLARE_NWTREE_TRAVERSE_CALLBACK(fn)          BOOL  fn(nwtreeNode_t* node,void* arg)
 typedef void* uaddr_t;
 typedef struct nwtree_node nwtreeNode_t;
 typedef int (*nwt_unmap_func_t) (void* addr, size_t sz);

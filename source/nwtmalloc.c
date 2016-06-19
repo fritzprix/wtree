@@ -46,7 +46,7 @@ typedef struct {
 } cleanup_list_t;
 
 static void nwt_cache_dstr(void* cache);
-static DECLARE_PURGE_CALLBACK(oncleanup);
+static DECLARE_NWTREE_TRAVERSE_CALLBACK(oncleanup);
 static int unmap_wrapper(void* addr, size_t sz);
 static nwt_cache_t* nwt_cache_bootstrap(size_t init_sz);
 
@@ -260,7 +260,7 @@ static void nwt_cache_dstr(void* cache) {
 	munmap(cachep, cachep->base_sz);
 }
 
-static DECLARE_PURGE_CALLBACK(oncleanup) {
+static DECLARE_NWTREE_TRAVERSE_CALLBACK(oncleanup) {
 	nwt_cache_t* cache = (nwt_cache_t*) arg;
 	cleanup_list_t* clhead = (cleanup_list_t*) node;
 	cache->purge_hit_cnt++;

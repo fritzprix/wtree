@@ -47,7 +47,7 @@ typedef struct {
 } cleanup_list_t;
 
 static void wt_cache_dstr(void* cache);
-static DECLARE_PURGE_CALLBACK(oncleanup);
+static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup);
 static void* map_wrapper(size_t sz, size_t* rsz);
 static int unmap_wrapper(void* addr, size_t sz);
 static wt_cache_t* wt_cache_bootstrap(size_t init_sz);
@@ -231,7 +231,7 @@ static void wt_cache_dstr(void* cache) {
 	wt_cache_t* cachep = (wt_cache_t*) cache;
 	cleanup_list_t* lh;
 
-	wtree_iterBaseNode(&cachep->root, oncleanup, cachep);
+	wtree_traverseBaseNode(&cachep->root, oncleanup, cachep);
 	while (!cdsl_slistIsEmpty(&cachep->cleanup_list)) {
 		lh = (cleanup_list_t*) cdsl_slistDequeue(&cachep->cleanup_list);
 		if (!lh)
@@ -249,7 +249,7 @@ static void wt_cache_dstr(void* cache) {
 	munmap(cache, cachep->base_sz);
 }
 
-static DECLARE_PURGE_CALLBACK(oncleanup) {
+static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup) {
 	wt_cache_t* cache = (wt_cache_t*) arg;
 	cleanup_list_t* clhead = (cleanup_list_t*) ((uint8_t*)node - offsetof(cleanup_list_t, node));
 	cdsl_slistNodeInit(&clhead->lhead);

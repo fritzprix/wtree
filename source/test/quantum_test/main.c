@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #include <time.h>
 
 
@@ -19,12 +20,39 @@
 
 static void* map_segment(size_t req_sz, size_t* res_sz);
 static int unmap_segment(void* addr, size_t sz);
+static void* test_runner(void* arg);
 static uint16_t* mem[100000];
 
 int main() {
+	int tloop_cnt = 100;
+	pthread_t pid;
+	while(tloop_cnt--) {
+		printf("loop %d\n",tloop_cnt);
+		pthread_create(&pid,NULL,test_runner,NULL);
+		pthread_join(pid,NULL);
+	}
+
+	return 0;
+}
+
+static void* map_segment(size_t req_sz, size_t* res_sz) {
+	printf("req_sz : %lu\n",req_sz);
+	if(res_sz)
+		*res_sz = SEGMENT_SIZE;
+	return mmap(NULL, SEGMENT_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+
+static int unmap_segment(void* addr, size_t sz) {
+	munmap(addr,sz);
+	return 0;
+}
+
+static void* test_runner(void* arg) {
 	printf("started\n");
 	quantumRoot_t root;
 	nrbtreeRoot_t rbroot;
+
+
 	cdsl_nrbtreeRootInit(&rbroot);
 	quantum_root_init(&root, map_segment,unmap_segment);
 	int i;
@@ -50,10 +78,8 @@ int main() {
 			fprintf(stderr,"Memory allocation fail \n");
 			exit(-1);
 		}
-//		printf("allocated %lx\n",(uint64_t) node);
 		cdsl_nrbtreeNodeInit(node, i);
 		cdsl_nrbtreeInsert(&rbroot, node);
-//		printf("loop : %d\n",i);
 	}
 	quantum_print(&root);
 	end = clock();
@@ -69,20 +95,10 @@ int main() {
 		}
 	}
 	printf("finished\n");
+	quantum_cleanup(&root);
 
-	return 0;
+	return NULL;
 }
 
-static void* map_segment(size_t req_sz, size_t* res_sz) {
-	printf("req_sz : %lu\n",req_sz);
-	if(res_sz)
-		*res_sz = SEGMENT_SIZE;
-	return mmap(NULL, SEGMENT_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-}
-
-static int unmap_segment(void* addr, size_t sz) {
-	munmap(addr,sz);
-	return 0;
-}
 
 

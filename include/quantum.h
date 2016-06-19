@@ -11,6 +11,7 @@
 
 #include "wtree.h"
 #include "cdsl_nrbtree.h"
+#include "cdsl_slist.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,12 +27,15 @@ typedef struct {
 	nrbtreeRoot_t    addr_rbroot;
 	nrbtreeRoot_t    quantum_tree;
 	wtreeRoot_t      quantum_pool;
+	slistEntry_t     clr_lentry;
+	wt_unmap_func_t  unmapper;
 }quantumRoot_t;
 
 extern void quantum_root_init(quantumRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t unmapper);
 extern void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz);
 extern int quantum_free_chunk(quantumRoot_t* root,void* chunk);
-extern void quantum_purge_cache(quantumRoot_t* root);
+extern void quantum_try_purge_cache(quantumRoot_t* root);
+extern void quantum_cleanup(quantumRoot_t* root);
 extern void quantum_print(quantumRoot_t* root);
 
 
