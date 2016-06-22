@@ -59,7 +59,7 @@ extern void nwtree_rootInit(nwtreeRoot_t* root,nwt_unmap_func_t unmap_func);
 extern void nwtree_nodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
 extern void nwtree_baseNodeInit(nwtreeNode_t* node, uaddr_t addr, uint32_t sz);
 extern void nwtree_purge(nwtreeRoot_t* root);
-extern void nwtree_iterBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
+extern void nwtree_traverseBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg);
 extern void nwtree_addNode(nwtreeRoot_t* root, nwtreeNode_t* node, BOOL compact);
 extern void* nwtree_reclaim_chunk(nwtreeRoot_t* root, uint32_t sz,BOOL compact);
 extern void* nwtree_grow_chunk(nwtreeRoot_t* root, nwtreeNode_t** node, uint32_t nsz);

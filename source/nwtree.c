@@ -16,7 +16,7 @@
 static nwtreeNode_t* insert_rc(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t* item, BOOL compact);
 static nwtreeNode_t* grows_node(nwtreeRoot_t* root, nwtreeNode_t* parent, nwtreeNode_t** grown, uint32_t nsz);
 static nwtreeNode_t* purge_rc(nwtreeRoot_t* root, nwtreeNode_t* node);
-static void iterbase_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg);
+static void traverse_base_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg);
 static size_t size_rc(nwtreeNode_t* node);
 static size_t fsize_rc(nwtreeNode_t* node);
 static size_t count_rc(nwtreeNode_t* node);
@@ -69,10 +69,10 @@ void nwtree_purge(nwtreeRoot_t* root) {
 	root->entry = purge_rc(root, root->entry);
 }
 
-void nwtree_iterBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg) {
+void nwtree_traverseBaseNode(nwtreeRoot_t* root, nwt_callback_t callback, void* arg) {
 	if (!root)
 		return;
-	iterbase_rc(root->entry, callback, arg);
+	traverse_base_rc(root->entry, callback, arg);
 }
 
 size_t nwtree_totalSize(nwtreeRoot_t* root) {
@@ -486,13 +486,13 @@ static nwtreeNode_t* purge_rc(nwtreeRoot_t* root, nwtreeNode_t* node) {
 }
 
 
-static void iterbase_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg) {
+static void traverse_base_rc(nwtreeNode_t* node, nwt_callback_t callback, void* arg) {
 	if (!node)
 		return;
-	iterbase_rc(node->right, callback, arg);
+	traverse_base_rc(node->right, callback, arg);
 	if (node->base_size)
 		callback(node, arg);
-	iterbase_rc(node->left, callback, arg);
+	traverse_base_rc(node->left, callback, arg);
 }
 
 static size_t size_rc(nwtreeNode_t* node) {

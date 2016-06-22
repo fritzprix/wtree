@@ -243,7 +243,7 @@ static void nwt_cache_dstr(void* cache) {
 		return;
 	nwt_cache_t* cachep = (nwt_cache_t*) cache;
 	cleanup_list_t* lh;
-	nwtree_iterBaseNode(&cachep->root, oncleanup, cachep);
+	nwtree_traverseBaseNode(&cachep->root, oncleanup, cachep);
 	while (!cdsl_slistIsEmpty(&cachep->cleanup_list)) {
 		lh = (cleanup_list_t*) cdsl_slistDequeue(&cachep->cleanup_list);
 		if (!lh)
