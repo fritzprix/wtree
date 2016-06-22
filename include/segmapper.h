@@ -8,6 +8,8 @@
 #ifndef INCLUDE_SEGMAPPER_H_
 #define INCLUDE_SEGMAPPER_H_
 
+#include <pthread.h>
+
 #include "wtree.h"
 #include "cdsl_nrbtree.h"
 
