@@ -104,7 +104,7 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	root->unmapper = unmapper;
 	cdsl_nrbtreeRootInit(&root->addr_rbroot);
 	cdsl_nrbtreeRootInit(&root->quantum_tree);
-	wtree_rootInit(&root->quantum_pool,mapper, unmapper);
+	wtree_rootInit(&root->quantum_pool,mapper, unmapper,NULL,NULL);
 	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;

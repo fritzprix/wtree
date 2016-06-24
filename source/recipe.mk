@@ -5,4 +5,4 @@ OBJ-y+= nwtree \
 		wtree\
 		wtmalloc\
 		quantum\
-		segmapper
+		segment

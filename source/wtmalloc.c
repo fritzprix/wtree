@@ -216,7 +216,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
 	cache->free_cnt = 0;
 	wtreeNode_t* seg_node;
-	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper);
+	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper,NULL,NULL);
 	cache->purge_hit_cnt = 0;
 	seg_node = wtree_nodeInit(chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);

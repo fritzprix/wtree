@@ -22,6 +22,8 @@ typedef struct wtree_node wtreeNode_t;
 
 typedef int (*wt_unmap_func_t) (void* addr, size_t sz);
 typedef void* (*wt_map_func_t) (size_t sz, size_t* rsz);
+typedef BOOL (*wt_callback_t) (wtreeNode_t* node,void* arg);
+typedef void (*wt_on_merge_t)(wtreeNode_t* merger, wtreeNode_t* mergee, void* arg);
 
 struct wtree_node {
 	wtreeNode_t *left, *right;
@@ -31,11 +33,13 @@ struct wtree_node {
 };
 
 typedef struct  {
-	wtreeNode_t* entry;
-	size_t        sz;
-	size_t        used_sz;
+	wtreeNode_t*      entry;
+	size_t            sz;
+	size_t            used_sz;
 	wt_unmap_func_t   unmapper;
 	wt_map_func_t     mapper;
+	wt_on_merge_t     on_merge;
+	void*             merge_arg;
 }wtreeRoot_t;
 
 /*          |   @ address   128  |
@@ -54,10 +58,10 @@ typedef struct  {
  *
  */
 
-typedef BOOL (*wt_callback_t) (wtreeNode_t* node,void* arg);
 
 
-extern void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper);
+
+extern void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper,wt_on_merge_t merge_cb, void* merge_arg);
 extern wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz);
 extern wtreeNode_t* wtree_baseNodeInit(uaddr_t addr, uint32_t sz);
 extern void wtree_purge(wtreeRoot_t* root);
