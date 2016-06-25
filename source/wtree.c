@@ -30,22 +30,23 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
-void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper,wt_on_merge_t merge_cb, void* merge_arg) {
+void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper,wt_on_merge_t merge_cb, void* merge_arg, size_t cust_hdr_sz) {
 	if(!root || !unmapper)
 		return;
 	root->entry = NULL;
-	root->sz = root->used_sz = 0;
+	root->total_sz = root->used_sz = 0;
 	root->mapper = mapper;
 	root->unmapper = unmapper;
 	root->on_merge = merge_cb;
 	root->merge_arg = merge_arg;
+	root->hdr_sz = cust_hdr_sz < sizeof(wtreeNode_t)? sizeof(wtreeNode_t) : cust_hdr_sz;
 }
 
-wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz) {
+wtreeNode_t* wtree_nodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
 	if(!addr || !sz)
 		return NULL;
 	uint8_t* chunk = (uint8_t*) addr;
-	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - sizeof(wtreeNode_t)];
+	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - root->hdr_sz];
 	node->size = sz;
 	node->base_size = 0;
 	node->left = node->right = NULL;
@@ -53,11 +54,11 @@ wtreeNode_t* wtree_nodeInit(uaddr_t addr, uint32_t sz) {
 	return node;
 }
 
-wtreeNode_t* wtree_baseNodeInit(uaddr_t addr, uint32_t sz) {
+wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
 	if(!addr || !sz)
 		return NULL;
 	uint8_t* chunk = (uint8_t*) addr;
-	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - sizeof(wtreeNode_t)];
+	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - root->hdr_sz];
 	node->size = node->base_size = sz;
 	node->left = node->right = NULL;
 	node->top = (uaddr_t) &chunk[sz];
@@ -79,8 +80,6 @@ void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg
 void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 	if(!root || !node)
 		return;
-	wtreeNode_t cache;
-	memcpy(&cache, node, sizeof(wtreeNode_t));
 	root->entry = insert_rc(root,root->entry,node,compact);
 }
 
@@ -92,10 +91,10 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 		return NULL;
 	wtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->top;
-	if((largest->size - sizeof(wtreeNode_t)) < sz) {
+	if((largest->size - root->hdr_sz) < sz) {
 		size_t seg_sz;
 		wtreeNode_t* nnode = root->mapper(sz,&seg_sz);
-		nnode = wtree_baseNodeInit(nnode, seg_sz);
+		nnode = wtree_baseNodeInit(root, nnode, seg_sz);
 		root->entry = insert_rc(root, root->entry, nnode, FALSE);
 		largest = root->entry;
 		chunk = largest->top;
@@ -219,7 +218,7 @@ static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode
 		return parent;
 	}
 	if((*grown)->top == (parent->top - parent->size)) {
-		if((parent->size + sizeof(wtreeNode_t)) > (nsz - (*grown)->size)) {
+		if((parent->size + root->hdr_sz) > (nsz - (*grown)->size)) {
 			parent->size -= (nsz - (*grown)->size);
 			return parent;
 		}
@@ -392,7 +391,7 @@ static wtreeNode_t* merge_next(wtreeRoot_t* root, wtreeNode_t* merger) {
 		return merger;
 	merger->right = merge_next(root, merger->right);
 	merger->right = merge_from_leftend(root, merger->right, merger);
-	wtreeNode_t* node = (wtreeNode_t*) (merger->top - sizeof(wtreeNode_t));
+	wtreeNode_t* node = (wtreeNode_t*) (merger->top - root->hdr_sz);
 	node->top = merger->top;
 	node->base_size = merger->base_size;
 	node->size = merger->size;

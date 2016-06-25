@@ -33,7 +33,7 @@ void segment_add_cache(segmentRoot_t* root, trkey_t cache_id, segmentCache_t* se
 	cdsl_nrbtreeRootInit(&segment_cache->addr_rbroot);
 	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
 	segment_cache->free_sz = segment_cache->total_sz = 0;
-	wtree_rootInit(&segment_cache->seg_cache, root->mapper, root->unmapper, NULL, NULL);
+	wtree_rootInit(&segment_cache->seg_cache, root->mapper, root->unmapper, NULL, NULL, 0);
 }
 
 BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr) {

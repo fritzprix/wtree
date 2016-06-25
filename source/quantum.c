@@ -104,12 +104,12 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	root->unmapper = unmapper;
 	cdsl_nrbtreeRootInit(&root->addr_rbroot);
 	cdsl_nrbtreeRootInit(&root->quantum_tree);
-	wtree_rootInit(&root->quantum_pool,mapper, unmapper,NULL,NULL);
+	wtree_rootInit(&root->quantum_pool,mapper, unmapper,NULL,NULL,0);
 	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;
 	uint8_t* init_seg = mapper(1, &seg_sz);
-	wtreeNode_t* qpool = wtree_baseNodeInit(init_seg, seg_sz);
+	wtreeNode_t* qpool = wtree_baseNodeInit(&root->quantum_pool, init_seg, seg_sz);
 	wtree_addNode(&root->quantum_pool,qpool,FALSE);
 }
 
@@ -208,7 +208,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				// delete quantum node from address lookup tree
 				printf("node freed "); quantum_node_print(qnode,0);
 				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
-				wtreeNode_t* free_q = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
+				wtreeNode_t* free_q = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE);
 				return TRUE;
 			}
@@ -232,7 +232,7 @@ void quantum_try_purge_cache(quantumRoot_t* root) {
 			fprintf(stderr, "Null node is detected in purge op.");
 			exit(-1);
 		}
-		pnode = wtree_nodeInit(qnode, (size_t) qnode->top - (size_t) qnode);
+		pnode = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode);
 		wtree_addNode(&root->quantum_pool, pnode, TRUE);
 	}
 	wtree_purge(&root->quantum_pool);

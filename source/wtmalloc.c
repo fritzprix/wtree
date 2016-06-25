@@ -121,7 +121,7 @@ __attribute__((malloc)) void* wt_realloc(void* chnk, size_t sz) {
 
 	wtreeNode_t header_presv;
 	memcpy(&header_presv, cur_sz, sizeof(wtreeNode_t));
-	node = wtree_nodeInit(cur_sz, *cur_sz + sizeof(uint32_t));
+	node = wtree_nodeInit(&ptcache->root, cur_sz, *cur_sz + sizeof(uint32_t));
 	nchnk = wtree_grow_chunk(&ptcache->root, &node, sz);
 	if(!node) {
 		memcpy(nchnk + sizeof(wtreeNode_t), (node->top - node->size + sizeof(wtreeNode_t)),node->size - sizeof(wtreeNode_t));
@@ -178,7 +178,7 @@ void wt_free(void* chnk) {
 	}
 	ptcache->free_sz += (*chnk_sz + sizeof(uint32_t));
 	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
-	node = wtree_nodeInit(chk, *chnk_sz + sizeof(uint32_t));
+	node = wtree_nodeInit(&ptcache->root,chk, *chnk_sz + sizeof(uint32_t));
 	wtree_addNode(&ptcache->root, node, TRUE);
 	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
 		ptcache->purge_hit_cnt++;
@@ -216,9 +216,9 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
 	cache->free_cnt = 0;
 	wtreeNode_t* seg_node;
-	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper,NULL,NULL);
+	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper,NULL,NULL,0);
 	cache->purge_hit_cnt = 0;
-	seg_node = wtree_nodeInit(chnk, cache->free_sz);
+	seg_node = wtree_nodeInit(&cache->root,chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
 
