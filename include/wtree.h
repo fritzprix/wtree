@@ -15,7 +15,11 @@
 
 #include "cdsl_slist.h"
 
-#define DECLARE_WTREE_TRAVERSE_CALLBACK(fn)          BOOL  fn(wtreeNode_t* node,void* arg)
+#define DECLARE_WTREE_TRAVERSE_CALLBACK(fn)             BOOL  fn(wtreeNode_t* node,void* arg)
+#define DECLARE_WTREE_ONMERGE(fn)                       void  fn(wtreeNode_t* merger, wtreeNode_t* mergee, void* arg)
+#define DECLARE_MAPPER(fn)                              void* fn(size_t total_sz, size_t* rsz)
+#define DECLARE_UNMAPPER(fn)                            int fn(void* addr, size_t sz)
+
 typedef void* uaddr_t;
 typedef struct wtree_node wtreeNode_t;
 

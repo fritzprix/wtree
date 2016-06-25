@@ -4,7 +4,8 @@
 		"enum": [
 			"nwt_test",
 			"wt_test",
-			"quantum_test"
+			"quantum_test",
+			"segment_test"
 		],
 		"default": 1
 	},
