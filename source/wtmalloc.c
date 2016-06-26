@@ -48,8 +48,8 @@ typedef struct {
 
 static void wt_cache_dstr(void* cache);
 static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup);
-static void* map_wrapper(size_t sz, size_t* rsz);
-static int unmap_wrapper(void* addr, size_t sz);
+static DECLARE_MAPPER(map_wrapper);
+static DECLARE_UNMAPPER(unmap_wrapper);
 static wt_cache_t* wt_cache_bootstrap(size_t init_sz);
 
 static __thread wt_cache_t* ptcache = NULL;
@@ -216,7 +216,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
 	cache->free_cnt = 0;
 	wtreeNode_t* seg_node;
-	wtree_rootInit(&cache->root, map_wrapper, unmap_wrapper,NULL,NULL,0);
+	wtree_rootInit(&cache->root, NULL, map_wrapper, unmap_wrapper,NULL,0);
 	cache->purge_hit_cnt = 0;
 	seg_node = wtree_nodeInit(&cache->root,chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);
@@ -257,17 +257,17 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup) {
 	return TRUE;
 }
 
-static int unmap_wrapper(void* addr, size_t sz) {
+static DECLARE_UNMAPPER(unmap_wrapper) {
 	ptcache->total_sz -= sz;
 	ptcache->free_sz -= sz;
 	munmap(addr,sz);
 	return 0;
 }
 
-static void* map_wrapper(size_t sz, size_t* rsz) {
+static DECLARE_MAPPER(map_wrapper) {
 	size_t seg_sz = SEGMENT_SIZE;
 	uint8_t* chnk;
-	while(seg_sz < sz) seg_sz <<= 1;
+	while(seg_sz < total_sz) seg_sz <<= 1;
 	chnk = mmap(NULL, seg_sz, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if(!chnk) {
 		fprintf(stderr, "Out Of Memory");

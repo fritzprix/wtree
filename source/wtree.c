@@ -30,7 +30,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
-void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unmapper,wt_on_merge_t merge_cb, void* merge_arg, size_t cust_hdr_sz) {
+void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper,wt_on_merge_t merge_cb, size_t cust_hdr_sz) {
 	if(!root || !unmapper)
 		return;
 	root->entry = NULL;
@@ -38,7 +38,7 @@ void wtree_rootInit(wtreeRoot_t* root, wt_map_func_t mapper, wt_unmap_func_t unm
 	root->mapper = mapper;
 	root->unmapper = unmapper;
 	root->on_merge = merge_cb;
-	root->merge_arg = merge_arg;
+	root->ext_ctx = ext_ctx;
 	root->hdr_sz = cust_hdr_sz < sizeof(wtreeNode_t)? sizeof(wtreeNode_t) : cust_hdr_sz;
 }
 
@@ -94,7 +94,7 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - root->hdr_sz) < sz) {
 		size_t seg_sz;
-		wtreeNode_t* nnode = root->mapper(sz,&seg_sz);
+		wtreeNode_t* nnode = root->mapper(sz,&seg_sz,root->ext_ctx);
 		nnode = wtree_baseNodeInit(root, nnode, seg_sz);
 		root->entry = insert_rc(root, root->entry, nnode, FALSE);
 		largest = root->entry;
@@ -271,7 +271,7 @@ static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node) {
 			node->left = purge_rc(root, node->left);
 		} else if(!node->left && !node->right) {
 			if(root->unmapper) {
-				root->unmapper(node->top - node->base_size, node->base_size);
+				root->unmapper(node->top - node->base_size, node->base_size,node, root->ext_ctx);
 				return NULL;
 			}
 		}
@@ -358,24 +358,27 @@ static wtreeNode_t* resolve(wtreeRoot_t* root, wtreeNode_t* parent, BOOL compact
 			parent->right = resolve(root,parent->right,compact);
 			parent = merge_next(root, parent);
 		}
+		return parent;
 	} else if (parent->right) {
 		if (parent->right->size > parent->size) {
 			parent = rotate_left(parent);
 			parent->left = resolve(root,parent->left,compact);
 			parent = merge_prev(root, parent);
 		}
+		return parent;
 	} else if (parent->left) {
 		if (parent->left->size > parent->size) {
 			parent = rotate_right(parent);
 			parent->right = resolve(root, parent->right,compact);
 			parent = merge_next(root, parent);
 		}
+		return parent;
 	} else {
 		if (!parent->size && !parent->base_size){
 			return NULL;
 		}else if(parent->size == parent->base_size) {
 			if(root->unmapper && compact) {
-				root->unmapper(parent->top - parent->base_size, parent->base_size);
+				root->unmapper(parent->top - parent->base_size, parent->base_size, parent, root->ext_ctx);
 				return NULL;
 			}
 		}
@@ -441,7 +444,7 @@ static wtreeNode_t* merge_from_leftend(wtreeRoot_t* root, wtreeNode_t* left, wtr
 		}
 		merger->size += left->size;
 		merger->top = left->top;
-		if(root->on_merge) root->on_merge(merger, left, root->merge_arg);
+		if(root->on_merge) root->on_merge(merger, left, root->ext_ctx);
 		if(!left->right)
 			return NULL;
 		left = left->right;
@@ -467,7 +470,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 			return right;
 		}
 		merger->size += right->size;
-		if(root->on_merge) root->on_merge(merger, right, root->merge_arg);
+		if(root->on_merge) root->on_merge(merger, right, root->ext_ctx);
 		if(!right->left)
 			return NULL;
 		right = right->left;

@@ -19,9 +19,6 @@
 static DECLARE_MAPPER(mapper);
 static DECLARE_UNMAPPER(unmapper);
 
-#ifndef SEGMENT_UNIT_SIZE
-#define SEGMENT_UNIT_SIZE        ((size_t) (1 << 23) + (1 << 16))
-#endif
 
 #ifndef MALLOC_UNIT_SIZE
 #define MALLOC_UNIT_SIZE         ((size_t) (1 << 20))
@@ -41,12 +38,12 @@ int main(void) {
 	segmentRoot_t segroot;
 	nrbtreeRoot_t rbroot;
 	trkey_t key_huge = 1;
-	segment_root_init(&segroot, mapper, unmapper);
+	segment_root_init(&segroot, NULL, mapper, unmapper);
 	cdsl_nrbtreeRootInit(&rbroot);
 
 	segment_create_cache(&segroot, key_huge);
 
-	int cnt;
+	uint32_t cnt;
 	void* segment;
 	size_t sz;
 	struct segment_node* segnode;
@@ -71,19 +68,16 @@ int main(void) {
 		cdsl_nrbtreeInsert(&rbroot, &segnode->rbnode);
 	}
 	printf("mapping finished\n");
-/*
-	for(cnt = 0;cnt < 100; cnt++) {
-		segment_unmap(&segroot, key_huge, ptr_arry[cnt], sz_arry[cnt]);
-	}
-*/
-	while((segnode = (struct segment_node*) cdsl_nrbtreeDeleteMin(&rbroot))) {
+
+
+	while((segnode = (struct segment_node*) cdsl_nrbtreeDeleteMax(&rbroot))) {
 		segnode = container_of(segnode, struct segment_node, rbnode);
 		printf("unmmaped %lu\n",segnode->sz);
 		segment_unmap(&segroot,key_huge, segnode, segnode->sz);
 //		segment_print_cache(&segroot, key_huge);
 	}
-
 	printf("finished!\n");
+	segment_print_cache(&segroot, key_huge);
 
 	return 0;
 }
@@ -91,8 +85,6 @@ int main(void) {
 
 static DECLARE_MAPPER(mapper) {
 
-	while(total_sz < SEGMENT_UNIT_SIZE) total_sz <<= 1;
-	printf("mapped %lu\n",total_sz);
 	void* segment = mmap(NULL, total_sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 	if(!segment) {
 		*rsz = 0;

@@ -104,11 +104,11 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	root->unmapper = unmapper;
 	cdsl_nrbtreeRootInit(&root->addr_rbroot);
 	cdsl_nrbtreeRootInit(&root->quantum_tree);
-	wtree_rootInit(&root->quantum_pool,mapper, unmapper,NULL,NULL,0);
+	wtree_rootInit(&root->quantum_pool,NULL,mapper, unmapper,NULL,0);
 	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;
-	uint8_t* init_seg = mapper(1, &seg_sz);
+	uint8_t* init_seg = mapper(1, &seg_sz,NULL);
 	wtreeNode_t* qpool = wtree_baseNodeInit(&root->quantum_pool, init_seg, seg_sz);
 	wtree_addNode(&root->quantum_pool,qpool,FALSE);
 }
@@ -252,7 +252,7 @@ void quantum_cleanup(quantumRoot_t* root) {
 	cleanupNode_t* clr_node;
 	while((clr_node = (cleanupNode_t*) cdsl_slistRemoveHead(&clr_entry))) {
 		clr_node = container_of(clr_node, cleanupNode_t, clr_lhead);
-		unmapper(clr_node->node.top - clr_node->node.base_size,clr_node->node.base_size);
+		unmapper(clr_node->node.top - clr_node->node.base_size,clr_node->node.base_size,&clr_node->node, NULL);
 	}
 }
 
