@@ -85,10 +85,11 @@ void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 
 
 void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
-	if (!root || (sz <= 0))
-		return NULL;
-	if (!root->entry)
-		return NULL;
+
+	if (!root || (sz <= 0))	return NULL;
+
+	if (!root->entry)		return NULL;
+
 	wtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - root->hdr_sz) < sz) {
@@ -104,6 +105,17 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	root->entry = resolve(root, root->entry, compact);
 	return chunk;
 }
+
+void* wtree_reclaim_chunk_from_node(wtreeNode_t* node, uint32_t sz) {
+
+	if(!node || !sz) return NULL;
+
+	uint8_t* chunk = (uint8_t*) node->top;
+	chunk = chunk  - node->size;
+	node->size -= sz;
+	return chunk;
+}
+
 
 void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz) {
 	if(!root || !(*node) || !nsz)
@@ -429,6 +441,7 @@ static wtreeNode_t* merge_from_leftend(wtreeRoot_t* root, wtreeNode_t* left, wtr
 		}
 		merger->size += left->size;
 		merger->top = left->top;
+		if(root->on_merge) root->on_merge(merger, left, root->merge_arg);
 		if(!left->right)
 			return NULL;
 		left = left->right;
@@ -454,6 +467,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 			return right;
 		}
 		merger->size += right->size;
+		if(root->on_merge) root->on_merge(merger, right, root->merge_arg);
 		if(!right->left)
 			return NULL;
 		right = right->left;

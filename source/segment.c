@@ -11,8 +11,9 @@
 
 #include "segment.h"
 
-
-#define MIN_SEGMENT_SIZE		((size_t) 1 << 24)
+#ifndef SEGMENT_MIN_SIZE
+#define SEGMENT_MIN_SIZE                ((size_t) 1 << 24)
+#endif
 
 
 typedef struct {
@@ -37,13 +38,25 @@ void segment_root_init(segmentRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t
 	root->unmapper = unmapper;
 }
 
-void segment_add_cache(segmentRoot_t* root, trkey_t cache_id, segmentCache_t* segment_cache) {
-	if(!root || !segment_cache)  return;
+void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
+	if(!root)  return;
+
+	size_t rsz;
+	void* chunk = root->mapper(SEGMENT_MIN_SIZE, &rsz);
+
+	wtreeRoot_t dummy_root;
+	wtree_rootInit(&dummy_root, root->mapper, root->unmapper, NULL, NULL, sizeof(segment_t));
+	wtreeNode_t* node = wtree_nodeInit(&dummy_root, chunk, rsz);
+	segmentCache_t* segment_cache = wtree_reclaim_chunk_from_node(node, sizeof(segmentCache_t));
+
 
 	cdsl_nrbtreeRootInit(&segment_cache->addr_rbroot);
 	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
+
 	segment_cache->free_sz = segment_cache->total_sz = 0;
 	wtree_rootInit(&segment_cache->seg_cache, root->mapper, root->unmapper, on_segment_merged,segment_cache, sizeof(segment_t));
+	wtree_addNode(&segment_cache->seg_cache, node, TRUE);
+	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode);
 }
 
 BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr) {
@@ -92,6 +105,17 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 	wtree_addNode(&cache->seg_cache, &segment->cache_node, TRUE);
 }
 
+void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
+	if(!root) return;
+
+	segmentCache_t* cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root, cache_id);
+	if(!cache) return;
+
+	cache = container_of(cache, segmentCache_t, rbnode);
+	wtree_print(&cache->seg_cache);
+}
+
+
 void segment_purge_target_cache(segmentRoot_t* root, trkey_t cache_id) {
 	if(!root)  return;
 
@@ -124,6 +148,7 @@ static DECLARE_TRAVERSE_CALLBACK(segment_for_each_contains) {
 }
 
 static DECLARE_WTREE_ONMERGE(on_segment_merged) {
+	printf("merged!!!\n");
 	segmentCache_t* cache = (segmentCache_t*) arg;
 	segment_t* segment = container_of(mergee, segment_t, cache_node);
 	cdsl_nrbtreeDelete(&cache->addr_rbroot, segment->addr_node.key);

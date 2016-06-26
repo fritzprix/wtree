@@ -1,2 +1,2 @@
-SRC-y+=./source/test/quantum_test
+SRC-y+=./source/test/segment_test
 OBJ-y+= main
