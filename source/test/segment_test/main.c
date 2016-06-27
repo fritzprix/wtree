@@ -30,18 +30,31 @@ struct segment_node {
 	size_t           sz;
 };
 
-static void* ptr_arry[100];
-static size_t sz_arry[100];
+static void* segment_test(void* arg);
 
 
 int main(void) {
+	pthread_t pids[10];
+	int i = 0;
+	for(;i < 1; i++) {
+		pthread_create(&pids[i], NULL, segment_test,NULL);
+	}
+
+	for(i = 0;i < 1; i++) {
+		pthread_join(pids[i], NULL);
+	}
+	return 0;
+}
+
+
+static void* segment_test(void* arg) {
 	segmentRoot_t segroot;
 	nrbtreeRoot_t rbroot;
-	trkey_t key_huge = 1;
+	trkey_t key_large = 1;
 	segment_root_init(&segroot, NULL, mapper, unmapper);
 	cdsl_nrbtreeRootInit(&rbroot);
 
-	segment_create_cache(&segroot, key_huge);
+	segment_create_cache(&segroot, key_large);
 
 	uint32_t cnt;
 	void* segment;
@@ -54,32 +67,26 @@ int main(void) {
 		}
 		while(sz < MALLOC_UNIT_SIZE) sz <<= 1;
 		sz &= ~3;
-		printf("size : %lu\n",sz);
-		segment = segment_map(&segroot, key_huge, sz);
+		segment = segment_map(&segroot, key_large, sz);
 		if(!segment) {
 			fprintf(stderr, "segment map fail %d\n",cnt);
 			exit(-1);
 		}
 		segnode = (struct segment_node*) segment;
-		ptr_arry[cnt] = segment;
-		sz_arry[cnt] = sz;
 		cdsl_nrbtreeNodeInit(&segnode->rbnode, cnt);
 		segnode->sz = sz;
 		cdsl_nrbtreeInsert(&rbroot, &segnode->rbnode);
 	}
-	printf("mapping finished\n");
 
 
 	while((segnode = (struct segment_node*) cdsl_nrbtreeDeleteMax(&rbroot))) {
 		segnode = container_of(segnode, struct segment_node, rbnode);
-		printf("unmmaped %lu\n",segnode->sz);
-		segment_unmap(&segroot,key_huge, segnode, segnode->sz);
-//		segment_print_cache(&segroot, key_huge);
+		segment_unmap(&segroot,key_large, segnode, segnode->sz);
 	}
-	printf("finished!\n");
-	segment_print_cache(&segroot, key_huge);
-
-	return 0;
+	segment_print_cache(&segroot, key_large);
+	segment_cleanup(&segroot);
+	printf("finished test \n");
+	return NULL;
 }
 
 

@@ -22,16 +22,18 @@ typedef struct {
 	nrbtreeRoot_t     cache_root;
 	wt_map_func_t     mapper;         // underlying mapper
 	wt_unmap_func_t   unmapper;       // underlying unmapper
+	slistEntry_t      clr_lentry;     // list entry for segment cache to be cleared
 	void*             ext_ctx;
 } segmentRoot_t;
 
 typedef struct {
 	nrbtreeNode_t     rbnode;
 	nrbtreeRoot_t     addr_rbroot;
-	wtreeRoot_t       seg_cache;
+	wtreeRoot_t       seg_pool;
 	size_t            total_sz;
 	size_t            free_sz;
 	segmentRoot_t*    root;
+	void*             bootstrap_seg;
 } segmentCache_t;
 
 extern void segment_root_init(segmentRoot_t* root,void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);

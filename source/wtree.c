@@ -192,6 +192,7 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 				parent = resolve(root, parent, compact);
 				return parent;
 			}
+			root->on_merge(item,parent,root->ext_ctx);
 			item->size += parent->size;
 			item->left = parent->left;
 			item->right = parent->right;
@@ -213,6 +214,7 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 				parent = resolve(root, parent, compact);
 				return parent;
 			}
+			root->on_merge(parent,item,root->ext_ctx);
 			parent->size += item->size;
 		} else {
 			parent->left = insert_rc(root, parent->left, item, compact);
