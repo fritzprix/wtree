@@ -18,8 +18,8 @@
 
 #define SEGMENT_SIZE        (1 << 20)
 
-static DECLARE_MAPPER(map_segment);
-static DECLARE_UNMAPPER(unmap_segment);
+static DECLARE_ONALLOCATE(map_segment);
+static DECLARE_ONFREE(unmap_segment);
 static void* test_runner(void* arg);
 static uint16_t* mem[100000];
 
@@ -35,14 +35,14 @@ int main() {
 	return 0;
 }
 
-static DECLARE_MAPPER(map_segment) {
+static DECLARE_ONALLOCATE(map_segment) {
 	printf("req_sz : %lu\n",total_sz);
 	if(rsz)
 		*rsz = SEGMENT_SIZE;
 	return mmap(NULL, SEGMENT_SIZE, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
-static DECLARE_UNMAPPER(unmap_segment) {
+static DECLARE_ONFREE(unmap_segment) {
 	munmap(addr,sz);
 	return 0;
 }

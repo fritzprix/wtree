@@ -123,7 +123,10 @@ $(REL_CACHE_DIR)/%.s.o : %.c
 	@echo 'compile...$@'
 	$(CC) -c -o $@ $(REL_CFLAG)  $< $(INCS) $(DYNAMIC_FLAG) 
 	
-PHONY += clean
+PHONY += clean re
+
+re : 
+	make clean && make test
 
 clean : 
 	rm -rf $(DBG_CACHE_DIR) $(DBG_STATIC_TARGET) $(DBG_DYNAMIC_TARGET)\

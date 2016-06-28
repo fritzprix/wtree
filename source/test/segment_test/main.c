@@ -16,8 +16,8 @@
 #include <pthread.h>
 #include <time.h>
 
-static DECLARE_MAPPER(mapper);
-static DECLARE_UNMAPPER(unmapper);
+static DECLARE_ONALLOCATE(mapper);
+static DECLARE_ONFREE(unmapper);
 
 
 #ifndef MALLOC_UNIT_SIZE
@@ -61,6 +61,7 @@ static void* segment_test(void* arg) {
 	size_t sz;
 	struct segment_node* segnode;
 	for(cnt = 0; cnt < 100; cnt++) {
+		printf("cnt : %d\n",cnt);
 		sz = rand() % (1 << 22);
 		if(!sz) {
 			sz = 1;
@@ -77,6 +78,7 @@ static void* segment_test(void* arg) {
 		segnode->sz = sz;
 		cdsl_nrbtreeInsert(&rbroot, &segnode->rbnode);
 	}
+	printf("map finished\n");
 
 
 	while((segnode = (struct segment_node*) cdsl_nrbtreeDeleteMax(&rbroot))) {
@@ -90,8 +92,7 @@ static void* segment_test(void* arg) {
 }
 
 
-static DECLARE_MAPPER(mapper) {
-
+static DECLARE_ONALLOCATE(mapper) {
 	void* segment = mmap(NULL, total_sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,-1,0);
 	if(!segment) {
 		*rsz = 0;
@@ -101,7 +102,7 @@ static DECLARE_MAPPER(mapper) {
 	return segment;
 }
 
-static DECLARE_UNMAPPER(unmapper) {
+static DECLARE_ONFREE(unmapper) {
 	munmap(addr, sz);
 	return 0;
 }

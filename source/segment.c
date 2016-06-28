@@ -33,13 +33,21 @@ typedef struct {
 
 
 static DECLARE_TRAVERSE_CALLBACK(segment_for_each_contains);
-static DECLARE_MAPPER(segment_internal_mapper);
-static DECLARE_UNMAPPER(segment_internal_unmapper);
-static DECLARE_WTREE_ONMERGE(on_segment_merged);
+static DECLARE_ONALLOCATE(segment_internal_mapper);
+static DECLARE_ONFREE(segment_internal_unmapper);
+static DECLARE_ONADDED(segment_internal_onadd);
+static DECLARE_ONREMOVED(segment_internal_onremoved);
 static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_try_purge);
 static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup);
 static DECLARE_TRAVERSE_CALLBACK(for_each_segment_cleanup);
 static void print_segnode(void* node) ;
+
+static wt_adapter adapter = {
+		.onremoved = segment_internal_onremoved,
+		.onadded = segment_internal_onadd,
+		.onallocate = segment_internal_mapper,
+		.onfree = segment_internal_unmapper
+};
 
 void segment_root_init(segmentRoot_t* root,void* ext_ctx,wt_map_func_t mapper, wt_unmap_func_t unmapper) {
 	if(!mapper)   return;
@@ -56,18 +64,18 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	void* chunk = root->mapper(SEGMENT_MIN_SIZE, &rsz, root->ext_ctx);
 
 	wtreeRoot_t dummy_root;
-	wtree_rootInit(&dummy_root, NULL, segment_internal_mapper, segment_internal_unmapper, NULL,  sizeof(segment_t));
+	wtree_rootInit(&dummy_root, NULL, &adapter,  sizeof(segment_t));
 	wtreeNode_t* node = wtree_baseNodeInit(&dummy_root, chunk, rsz);
 	segmentCache_t* segment_cache = wtree_reclaim_chunk_from_node(node, sizeof(segmentCache_t));
-	segment_cache->bootstrap_seg = container_of(node, segment_t, cache_node);
-
+	segment_t* rootseg = container_of(node, segment_t, cache_node);
 
 	cdsl_nrbtreeRootInit(&segment_cache->addr_rbroot);
 	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
+	segment_cache->bootstrap_seg = rootseg;
 
 	segment_cache->free_sz = segment_cache->total_sz = 0;
 	segment_cache->root = root;
-	wtree_rootInit(&segment_cache->seg_pool, segment_cache, segment_internal_mapper, segment_internal_unmapper, on_segment_merged, sizeof(segment_t));
+	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
 	wtree_addNode(&segment_cache->seg_pool, node, TRUE);
 	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode);
 }
@@ -113,8 +121,6 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 		exit(-1);
 	}
 	segment = container_of(segment, segment_t, cache_node);
-	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) addr);
-	cdsl_nrbtreeInsert(&cache->addr_rbroot, &segment->addr_node);
 	wtree_addNode(&cache->seg_pool, &segment->cache_node, FALSE);
 }
 
@@ -175,40 +181,39 @@ static DECLARE_TRAVERSE_CALLBACK(segment_for_each_contains) {
 	return TRAVERSE_OK;
 }
 
-static DECLARE_WTREE_ONMERGE(on_segment_merged) {
-	printf("merged!!!\n");
-	segmentCache_t* cache = (segmentCache_t*) ext_ctx;
-	segment_t* segment = container_of(mergee, segment_t, cache_node);
-	if(!cdsl_nrbtreeDelete(&cache->addr_rbroot, segment->addr_node.key)) {
-		fprintf(stderr, "unexpected null\n");
-		exit(-1);
-	}
+static DECLARE_ONADDED(segment_internal_onadd) {
+	if(!ext_ctx || !node) return;
+
+	segment_t* segment = container_of(node, segment_t, cache_node);
+	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
+	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) segment->cache_node.top - segment->cache_node.base_size);
+	cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node);
 }
 
-static DECLARE_MAPPER(segment_internal_mapper) {
+static DECLARE_ONREMOVED(segment_internal_onremoved) {
+	if(!ext_ctx || !node) return;
+
+	segment_t* segment = container_of(node, segment_t, cache_node);
+	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
+	cdsl_nrbtreeDelete(&segcache->addr_rbroot, segment->addr_node.key);
+}
+
+static DECLARE_ONALLOCATE(segment_internal_mapper) {
 	if(!ext_ctx || !total_sz) return NULL;
 
 	size_t seg_sz = SEGMENT_MIN_SIZE;
 	segmentCache_t* seg_cache = (segmentCache_t*) ext_ctx;
 	while(seg_sz < total_sz) seg_sz <<= 1;
 	void* chunk= (segment_t*) seg_cache->root->mapper(seg_sz, rsz, seg_cache->root->ext_ctx);
-	segment_t* segment = (segment_t*) wtree_nodeInit(&seg_cache->seg_pool, chunk, *rsz);
-	segment = container_of(segment, segment_t, cache_node);
-	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) chunk);
-	cdsl_nrbtreeInsert(&seg_cache->addr_rbroot, &segment->addr_node);
 	return chunk;
 }
 
-static DECLARE_UNMAPPER(segment_internal_unmapper) {
+static DECLARE_ONFREE(segment_internal_unmapper) {
 
 	if(!ext_ctx || !wtnode) return -1;
 
 	segmentCache_t* seg_cache = (segmentCache_t*) ext_ctx;
 	segment_t* segment = container_of(wtnode, segment_t, cache_node);
-	if(!cdsl_nrbtreeDelete(&seg_cache->addr_rbroot,segment->addr_node.key)) {
-		fprintf(stderr, "unexpected null\n");
-		exit(-1);
-	}
 	return seg_cache->root->unmapper(addr, sz, wtnode, seg_cache->root->ext_ctx);
 }
 

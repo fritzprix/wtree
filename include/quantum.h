@@ -28,7 +28,7 @@ typedef struct {
 	nrbtreeRoot_t    quantum_tree;
 	wtreeRoot_t      quantum_pool;
 	slistEntry_t     clr_lentry;
-	wt_unmap_func_t  unmapper;
+	wt_adapter       adapter;
 }quantumRoot_t;
 
 extern void quantum_root_init(quantumRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t unmapper);

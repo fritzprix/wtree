@@ -46,10 +46,12 @@ typedef struct {
 	wtreeNode_t node;
 } cleanup_list_t;
 
+
+
 static void wt_cache_dstr(void* cache);
 static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup);
-static DECLARE_MAPPER(map_wrapper);
-static DECLARE_UNMAPPER(unmap_wrapper);
+static DECLARE_ONALLOCATE(map_wrapper);
+static DECLARE_ONFREE(unmap_wrapper);
 static wt_cache_t* wt_cache_bootstrap(size_t init_sz);
 
 static __thread wt_cache_t* ptcache = NULL;
@@ -61,6 +63,13 @@ void wt_init() {
 void wt_exit() {
 	pthread_key_delete(cache_key);
 }
+
+static wt_adapter adapter = {
+		.onfree = unmap_wrapper,
+		.onallocate = map_wrapper,
+		.onadded = NULL,
+		.onremoved = NULL
+};
 
 /*
  *  ****************************************************************************************************
@@ -216,7 +225,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	cache->free_sz = cache->total_sz = seg_sz - sizeof(wt_cache_t);
 	cache->free_cnt = 0;
 	wtreeNode_t* seg_node;
-	wtree_rootInit(&cache->root, NULL, map_wrapper, unmap_wrapper,NULL,0);
+	wtree_rootInit(&cache->root, NULL, &adapter,0);
 	cache->purge_hit_cnt = 0;
 	seg_node = wtree_nodeInit(&cache->root,chnk, cache->free_sz);
 	wtree_addNode(&cache->root, seg_node, TRUE);
@@ -257,14 +266,14 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(oncleanup) {
 	return TRUE;
 }
 
-static DECLARE_UNMAPPER(unmap_wrapper) {
+static DECLARE_ONFREE(unmap_wrapper) {
 	ptcache->total_sz -= sz;
 	ptcache->free_sz -= sz;
 	munmap(addr,sz);
 	return 0;
 }
 
-static DECLARE_MAPPER(map_wrapper) {
+static DECLARE_ONALLOCATE(map_wrapper) {
 	size_t seg_sz = SEGMENT_SIZE;
 	uint8_t* chnk;
 	while(seg_sz < total_sz) seg_sz <<= 1;
