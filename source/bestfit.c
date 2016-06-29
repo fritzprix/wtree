@@ -7,9 +7,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifndef BFIT_SEGMENT_UNITSIZE
-#define BFIT_SEGMENT_UNITSIZE                 (1 << 21)
-#endif
 
 #ifndef BFIT_ALIGNMENT
 #define BFIT_ALIGNMENT                         4
@@ -45,7 +42,13 @@ void bfit_root_init(bfitRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_un
 	root->mapper = mapper;
 	root->unmapper = unmapper;
 
+	root->free_sz = root->total_sz = 0;
 	wtree_rootInit(&root->bfit_cache, root, &cache_adapter, 0);
+	size_t rsz;
+	void* chunk = root->mapper(1,&rsz,ext_ctx);
+	wtreeNode_t* node = wtree_baseNodeInit(&root->bfit_cache,chunk, rsz);
+	wtree_addNode(&root->bfit_cache, node,TRUE);
+	wtree_reclaim_chunk_from_node(node, 4);
 }
 
 void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
@@ -146,13 +149,16 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(bfit_oncleanup) {
 
 static DECLARE_ONALLOCATE(bfit_internal_mapper) {
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;
-	size_t seg_sz = BFIT_SEGMENT_UNITSIZE;
-	while(seg_sz < total_sz) seg_sz <<= 1;
-	return root->mapper(seg_sz, rsz, NULL);
+	void* chunk = root->mapper(total_sz, rsz, NULL);
+	root->total_sz += *rsz;
+	root->free_sz += *rsz;
+	return chunk;
 }
 
 static DECLARE_ONFREE(bfit_internal_unmapper) {
 	if(!addr) return FALSE;
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;
+	root->total_sz -= sz;
+	root->free_sz -= sz;
 	return root->unmapper(addr, sz, wtnode, NULL);
 }
