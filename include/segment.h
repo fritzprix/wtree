@@ -19,21 +19,21 @@ extern "C" {
 
 
 typedef struct {
-	nrbtreeRoot_t     cache_root;
+	nrbtreeRoot_t     cache_root;     // segment cache red black tree root
 	wt_map_func_t     mapper;         // underlying mapper
 	wt_unmap_func_t   unmapper;       // underlying unmapper
 	slistEntry_t      clr_lentry;     // list entry for segment cache to be cleared
-	void*             ext_ctx;
+	void*             ext_ctx;        // external context header
 } segmentRoot_t;
 
 typedef struct {
-	nrbtreeNode_t     rbnode;
-	nrbtreeRoot_t     addr_rbroot;
-	wtreeRoot_t       seg_pool;
-	size_t            total_sz;
-	size_t            free_sz;
-	segmentRoot_t*    root;
-	void*             bootstrap_seg;
+	nrbtreeNode_t     rbnode;         // segment cache red black tree node
+	nrbtreeRoot_t     addr_rbroot;    // address lookup tree
+	wtreeRoot_t       seg_pool;       // memory segment pool
+	size_t            total_sz;       // total size in bytes
+	size_t            free_sz;        // free size in bytes
+	segmentRoot_t*    root;           // reference to parent segroot
+	void*             bootstrap_seg;  // reference to segment which contains this cache header
 } segmentCache_t;
 
 extern void segment_root_init(segmentRoot_t* root,void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);

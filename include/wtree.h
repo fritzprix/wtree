@@ -76,7 +76,8 @@ typedef struct  {
 
 
 extern void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, const wt_adapter* adapter, size_t cust_hdr_sz);
-extern wtreeNode_t* wtree_nodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz);
+extern wtreeNode_t* wtree_nodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz, void* preserve);
+extern void wtree_restorePreserved(wtreeRoot_t* root, uaddr_t addr, uint32_t sz, void* preserved);
 extern wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz);
 extern void wtree_purge(wtreeRoot_t* root);
 extern void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg);

@@ -35,12 +35,12 @@ static void* segment_test(void* arg);
 
 int main(void) {
 	pthread_t pids[10];
+	pthread_t thread;
 	int i = 0;
-	for(;i < 1; i++) {
+	for(;i < 10; i++) {
 		pthread_create(&pids[i], NULL, segment_test,NULL);
 	}
-
-	for(i = 0;i < 1; i++) {
+	for(i = 0;i < 10; i++) {
 		pthread_join(pids[i], NULL);
 	}
 	return 0;
@@ -60,8 +60,7 @@ static void* segment_test(void* arg) {
 	void* segment;
 	size_t sz;
 	struct segment_node* segnode;
-	for(cnt = 0; cnt < 100; cnt++) {
-		printf("cnt : %d\n",cnt);
+	for(cnt = 0; cnt < 1000; cnt++) {
 		sz = rand() % (1 << 22);
 		if(!sz) {
 			sz = 1;

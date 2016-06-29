@@ -26,14 +26,14 @@
 
 static pthread_key_t cache_key;
 typedef struct {
-	wtreeRoot_t root;
+	wtreeRoot_t  root;
 	uint32_t     base_sz; // size of base segment in which cache header itself is contained
 	uint32_t     free_cnt;
-	size_t total_sz;       // size of total cache
-	size_t free_sz;        // size of free cache
+	size_t       total_sz;       // size of total cache
+	size_t       free_sz;        // size of free cache
 	slistEntry_t cleanup_list;
-	pthread_t pid;
-	int purge_hit_cnt;
+	pthread_t    pid;
+	int          purge_hit_cnt;
 } wt_cache_t;
 
 struct chunk_header {
@@ -129,15 +129,14 @@ __attribute__((malloc)) void* wt_realloc(void* chnk, size_t sz) {
 	}
 
 	wtreeNode_t header_presv;
-	memcpy(&header_presv, cur_sz, sizeof(wtreeNode_t));
-	node = wtree_nodeInit(&ptcache->root, cur_sz, *cur_sz + sizeof(uint32_t));
+	node = wtree_nodeInit(&ptcache->root, cur_sz, *cur_sz + sizeof(uint32_t), &header_presv);
 	nchnk = wtree_grow_chunk(&ptcache->root, &node, sz);
+
 	if(!node) {
-		memcpy(nchnk + sizeof(wtreeNode_t), (node->top - node->size + sizeof(wtreeNode_t)),node->size - sizeof(wtreeNode_t));
+		memcpy(nchnk, cur_sz, *cur_sz + sizeof(uint32_t) - sizeof(wtreeNode_t));
 	}
-	memcpy(nchnk, &header_presv, sizeof(wtreeNode_t));
+	wtree_restorePreserved(&ptcache->root, nchnk, *cur_sz + sizeof(uint32_t), &header_presv);
 	ptcache->free_sz -= (sz - node->size);
-	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
 	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
 	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
 	ptcache->free_cnt = 0;
@@ -187,7 +186,7 @@ void wt_free(void* chnk) {
 	}
 	ptcache->free_sz += (*chnk_sz + sizeof(uint32_t));
 	ptcache->free_cnt += (*chnk_sz + sizeof(uint32_t));
-	node = wtree_nodeInit(&ptcache->root,chk, *chnk_sz + sizeof(uint32_t));
+	node = wtree_nodeInit(&ptcache->root,chk, *chnk_sz + sizeof(uint32_t), NULL);
 	wtree_addNode(&ptcache->root, node, TRUE);
 	if(ptcache->free_cnt > ((ptcache->total_sz * 1016) >> 10)) {
 		ptcache->purge_hit_cnt++;
@@ -197,7 +196,6 @@ void wt_free(void* chnk) {
 			ptcache->free_cnt = 0;
 		}
 	}
-
 }
 
 void wt_purgeCache() {
@@ -227,7 +225,7 @@ static wt_cache_t* wt_cache_bootstrap(size_t init_sz) {
 	wtreeNode_t* seg_node;
 	wtree_rootInit(&cache->root, NULL, &adapter,0);
 	cache->purge_hit_cnt = 0;
-	seg_node = wtree_nodeInit(&cache->root,chnk, cache->free_sz);
+	seg_node = wtree_nodeInit(&cache->root,chnk, cache->free_sz, NULL);
 	wtree_addNode(&cache->root, seg_node, TRUE);
 	cdsl_slistEntryInit(&cache->cleanup_list);
 

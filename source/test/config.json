@@ -5,7 +5,8 @@
 			"nwt_test",
 			"wt_test",
 			"quantum_test",
-			"segment_test"
+			"segment_test",
+			"bfit_test"
 		],
 		"default": 1
 	},

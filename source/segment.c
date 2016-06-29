@@ -104,7 +104,13 @@ void* segment_map(segmentRoot_t* root, trkey_t cache_id, size_t sz) {
 	if(!cache) return NULL;
 
 	cache = container_of(cache, segmentCache_t, rbnode);
-	return wtree_reclaim_chunk(&cache->seg_pool, sz, FALSE);
+	void* chunk = wtree_reclaim_chunk(&cache->seg_pool, sz, TRUE);
+	if(!chunk) {
+		fprintf(stderr, "Out of Memory!\n");
+		exit(-1);
+	}
+	cache->free_sz -= sz;
+	return chunk;
 }
 
 void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz) {
@@ -115,13 +121,14 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 	if(!cache) return;
 
 	cache = container_of(cache, segmentCache_t, rbnode);
-	segment_t* segment = (segment_t*) wtree_nodeInit(&cache->seg_pool, addr, sz);
+	segment_t* segment = (segment_t*) wtree_nodeInit(&cache->seg_pool, addr, sz, NULL);
 	if(!segment) {
 		fprintf(stderr, "unexpected null segment");
 		exit(-1);
 	}
 	segment = container_of(segment, segment_t, cache_node);
-	wtree_addNode(&cache->seg_pool, &segment->cache_node, FALSE);
+	wtree_addNode(&cache->seg_pool, &segment->cache_node, TRUE);
+	cache->free_sz += sz;
 }
 
 void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
@@ -205,6 +212,7 @@ static DECLARE_ONALLOCATE(segment_internal_mapper) {
 	segmentCache_t* seg_cache = (segmentCache_t*) ext_ctx;
 	while(seg_sz < total_sz) seg_sz <<= 1;
 	void* chunk= (segment_t*) seg_cache->root->mapper(seg_sz, rsz, seg_cache->root->ext_ctx);
+	seg_cache->total_sz += *rsz;
 	return chunk;
 }
 
@@ -214,6 +222,7 @@ static DECLARE_ONFREE(segment_internal_unmapper) {
 
 	segmentCache_t* seg_cache = (segmentCache_t*) ext_ctx;
 	segment_t* segment = container_of(wtnode, segment_t, cache_node);
+	seg_cache->free_sz -= sz;
 	return seg_cache->root->unmapper(addr, sz, wtnode, seg_cache->root->ext_ctx);
 }
 

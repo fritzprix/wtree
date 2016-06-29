@@ -31,8 +31,7 @@ static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
 void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, const wt_adapter* adapter, size_t cust_hdr_sz) {
-	if(!root || !adapter || !adapter->onallocate || !adapter->onfree)
-		return;
+	if(!root || !adapter || !adapter->onallocate || !adapter->onfree) return;
 	root->entry = NULL;
 	root->total_sz = root->used_sz = 0;
 	root->adapter = adapter;
@@ -40,17 +39,24 @@ void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, const wt_adapter* adapter,
 	root->hdr_sz = cust_hdr_sz < sizeof(wtreeNode_t)? sizeof(wtreeNode_t) : cust_hdr_sz;
 }
 
-wtreeNode_t* wtree_nodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
-	if(!addr || !sz)
-		return NULL;
+wtreeNode_t* wtree_nodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz, void* preserve) {
+	if(!addr || !sz) return NULL;
 	uint8_t* chunk = (uint8_t*) addr;
 	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - root->hdr_sz];
+	if(preserve) memcpy(preserve, node, root->hdr_sz);
 	node->size = sz;
 	node->base_size = 0;
 	node->left = node->right = NULL;
 	node->top = (uaddr_t) &chunk[sz];
 	return node;
 }
+
+void wtree_restorePreserved(wtreeRoot_t* root, uaddr_t addr, uint32_t sz, void* preserved) {
+	if(!addr || !sz || !preserved) return;
+	uint8_t* chunk = (uint8_t*) addr;
+	memcpy(&chunk[sz - root->hdr_sz], preserved, root->hdr_sz);
+}
+
 
 wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
 	if(!addr || !sz)
