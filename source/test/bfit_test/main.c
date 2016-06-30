@@ -343,7 +343,6 @@ static void* test_bfit(void* arg) {
 	report->realloc_time = dt;
 	segment_cleanup(&sgroot);
 
-
 	return NULL;
 }
 
