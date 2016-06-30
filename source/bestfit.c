@@ -48,6 +48,7 @@ void bfit_root_init(bfitRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_un
 	void* chunk = root->mapper(1,&rsz,ext_ctx);
 	wtreeNode_t* node = wtree_baseNodeInit(&root->bfit_cache,chunk, rsz);
 	wtree_addNode(&root->bfit_cache, node,TRUE);
+	// TODO : prevent root cache node from being freed
 	wtree_reclaim_chunk_from_node(node, 4);
 }
 
@@ -58,7 +59,7 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 	if(sz < sizeof(wtreeNode_t))   sz = sizeof(wtreeNode_t);
 
 	sz += sizeof(bfit_chunkHeader_t);
-	sz = (sz + BFIT_ALIGNMENT) & ~(BFIT_ALIGNMENT);
+	sz = (sz + BFIT_ALIGNMENT) & ~(BFIT_ALIGNMENT - 1);
 
 	uint8_t* chunk = wtree_reclaim_chunk(&root->bfit_cache,sz , TRUE);
 	if(!chunk) {
@@ -120,7 +121,7 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 	root->free_sz += *cur_sz + sizeof(uint32_t);
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, cur_sz, *cur_sz + sizeof(uint32_t), NULL);
 	wtree_addNode(&root->bfit_cache, node, TRUE);
-	if(root->free_sz == root->total_sz) {
+	if(root->free_sz > ((root->total_sz * 15) >> 4)) {
 		wtree_purge(&root->bfit_cache);
 	}
 }
@@ -149,7 +150,7 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(bfit_oncleanup) {
 
 static DECLARE_ONALLOCATE(bfit_internal_mapper) {
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;
-	void* chunk = root->mapper(total_sz, rsz, NULL);
+	void* chunk = root->mapper(total_sz, rsz, root->ext_ctx);
 	root->total_sz += *rsz;
 	root->free_sz += *rsz;
 	return chunk;
@@ -160,5 +161,5 @@ static DECLARE_ONFREE(bfit_internal_unmapper) {
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;
 	root->total_sz -= sz;
 	root->free_sz -= sz;
-	return root->unmapper(addr, sz, wtnode, NULL);
+	return root->unmapper(addr, sz, wtnode, root->ext_ctx);
 }

@@ -141,7 +141,6 @@ void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
 	wtree_print(&cache->seg_pool);
 }
 
-
 void segment_purge_target_cache(segmentRoot_t* root, trkey_t cache_id) {
 	if(!root)  return;
 
@@ -174,8 +173,6 @@ void segment_cleanup(segmentRoot_t* root) {
 				clr_node->segment_hdr.cache_node.base_size, &clr_node->segment_hdr.cache_node, root->ext_ctx);
 	}
 }
-
-
 
 static DECLARE_TRAVERSE_CALLBACK(segment_for_each_contains) {
 	segment_t* seg_node = container_of(node, segment_t, addr_node);
@@ -244,7 +241,6 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 	segmentCache_t* seg_cache = container_of(node, segmentCache_t, rbnode);
 	slistEntry_t cleanup_list;
 	cdsl_slistEntryInit(&cleanup_list);
-	cdsl_nrbtreePrint(&seg_cache->addr_rbroot, print_segnode);
 	cdsl_nrbtreeTraverse(&seg_cache->addr_rbroot, for_each_segment_cleanup, ORDER_INC, &cleanup_list);
 	segmentClr_t* seg_clr;
 	while((seg_clr = (segmentClr_t*)cdsl_slistRemoveHead(&cleanup_list))) {
