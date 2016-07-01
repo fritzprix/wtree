@@ -137,7 +137,7 @@ void bfit_clean_up(bfitRoot_t* root) {
 	cdsl_slistEntryInit(&cleanup_list);
 	wtree_traverseBaseNode(&root->bfit_cache, bfit_oncleanup, &cleanup_list);
 	bfit_cleanupHeader_t* cln_hdr;
-	while((cln_hdr = cdsl_slistRemoveHead(&cleanup_list))) {
+	while((cln_hdr = (bfit_cleanupHeader_t*) cdsl_slistRemoveHead(&cleanup_list))) {
 		cln_hdr = container_of(cln_hdr, bfit_cleanupHeader_t,cleanup_lhead);
 		root->unmapper(cln_hdr->cache_node.top - cln_hdr->cache_node.base_size , cln_hdr->cache_node.base_size, &cln_hdr->cache_node, root->ext_ctx);
 	}

@@ -19,6 +19,7 @@
 typedef struct {
 	wtreeNode_t    cache_node;
 	nrbtreeNode_t  addr_node;
+	uint16_t       dummy;
 } segment_t;
 
 typedef struct {
@@ -67,11 +68,10 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	wtree_rootInit(&dummy_root, NULL, &adapter,  sizeof(segment_t));
 	wtreeNode_t* node = wtree_baseNodeInit(&dummy_root, chunk, rsz);
 	segmentCache_t* segment_cache = wtree_reclaim_chunk_from_node(node, sizeof(segmentCache_t));
-	segment_t* rootseg = container_of(node, segment_t, cache_node);
 
 	cdsl_nrbtreeRootInit(&segment_cache->addr_rbroot);
 	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
-	segment_cache->bootstrap_seg = rootseg;
+	segment_cache->bootstrap_seg = chunk;
 
 	segment_cache->free_sz = segment_cache->total_sz = 0;
 	segment_cache->root = root;
@@ -162,15 +162,19 @@ void segment_cleanup(segmentRoot_t* root) {
 	if(!root) return;
 
 	cdsl_slistEntryInit(&root->clr_lentry);
+
+	segmentCache_t* cache;
+	segment_t* seg;
+
 	cdsl_nrbtreeTraverse(&root->cache_root,for_each_segcache_cleanup, ORDER_INC, root);
 	segmentClr_t* clr_node;
 	while((clr_node = (segmentClr_t*) cdsl_slistRemoveHead(&root->clr_lentry))) {
-		/**
-		 *  unmap segment where segmentcache node is contained
-		 */
 		clr_node = container_of(clr_node, segmentClr_t, clr_list);
+//		printf("--delete last seg ---\n");
+		print_segnode(&clr_node->segment_hdr.addr_node);
 		root->unmapper(clr_node->segment_hdr.cache_node.top - clr_node->segment_hdr.cache_node.base_size,
 				clr_node->segment_hdr.cache_node.base_size, &clr_node->segment_hdr.cache_node, root->ext_ctx);
+//		printf("--delete last seg ---\n");
 	}
 }
 
@@ -242,16 +246,31 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 	slistEntry_t cleanup_list;
 	cdsl_slistEntryInit(&cleanup_list);
 	cdsl_nrbtreeTraverse(&seg_cache->addr_rbroot, for_each_segment_cleanup, ORDER_INC, &cleanup_list);
+	void* seg_base = seg_cache->bootstrap_seg;
+	void* clr_base;
 	segmentClr_t* seg_clr;
 	while((seg_clr = (segmentClr_t*)cdsl_slistRemoveHead(&cleanup_list))) {
 		seg_clr = container_of(seg_clr, segmentClr_t, clr_list);
-		if(&seg_clr->segment_hdr != seg_cache->bootstrap_seg) {
-			seg_root->unmapper(seg_clr->segment_hdr.cache_node.top - seg_clr->segment_hdr.cache_node.base_size,
-				seg_clr->segment_hdr.cache_node.base_size, &seg_clr->segment_hdr.cache_node,seg_root->ext_ctx);
+		clr_base = (void*) ((size_t)seg_clr->segment_hdr.cache_node.top - seg_clr->segment_hdr.cache_node.base_size);
+//		printf("-=-=delete-=-=-=\n");
+		print_segnode(&seg_clr->segment_hdr.addr_node);
+//		printf("seghdr : %lx   seg_cache :  %lx   segclr : %lx    base_seg : %lx \n",(size_t) &seg_clr->segment_hdr , (size_t)seg_cache, (size_t )seg_clr, (size_t)seg_base);
+		if(clr_base != seg_base) {
+//			printf("here\n");
+//			cdsl_nrbtreePrint(&seg_cache->addr_rbroot, print_segnode);
+			if(!cdsl_nrbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key)){
+				fprintf(stderr,"fuck\n");
+				exit(-1);
+			}
+			seg_root->unmapper(clr_base, seg_clr->segment_hdr.cache_node.base_size, &seg_clr->segment_hdr.cache_node,seg_root->ext_ctx);
+//			printf("there\n");
 		} else {
+//			printf("here1\n");
 			cdsl_slistNodeInit(&seg_clr->clr_list);
 			cdsl_slistPutHead(&seg_root->clr_lentry, &seg_clr->clr_list);
+//			printf("there1\n");
 		}
+//		printf("-=-=delete-=-=-=\n");
 	}
 	return TRAVERSE_OK;
 
@@ -263,16 +282,20 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segment_cleanup) {
 	if(!node) return TRAVERSE_OK;
 
 	slistEntry_t* clr_list  = (slistEntry_t*) arg;
+	segmentClr_t* seg_tobclr = NULL;
 
 	segment_t* segment = container_of(node, segment_t, addr_node);
-	segmentClr_t* seg_tobclr = container_of(segment, segmentClr_t, segment_hdr);
-	cdsl_slistNodeInit(&seg_tobclr->clr_list);
-	cdsl_slistPutHead(clr_list, &seg_tobclr->clr_list);
+	if(segment->cache_node.base_size) {
+		segmentClr_t* seg_tobclr = container_of(segment, segmentClr_t, segment_hdr);
+		cdsl_slistNodeInit(&seg_tobclr->clr_list);
+		cdsl_slistPutHead(clr_list, &seg_tobclr->clr_list);
+	}
 	return TRAVERSE_OK;
 }
 
 void print_segnode(void* node) {
-	printf("%lx\n",(size_t) node );
+	segment_t* segment = container_of(node, segment_t, addr_node);
+	printf("@[%lx ~ %lx] (%u)\n",(size_t) segment->cache_node.top - segment->cache_node.base_size, (size_t) segment->cache_node.top, segment->cache_node.base_size);
 }
 
 

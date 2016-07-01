@@ -136,8 +136,6 @@ void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz) {
 	return wtree_reclaim_chunk(root, nsz,TRUE);
 }
 
-
-
 void wtree_print(wtreeRoot_t* root) {
 	if(!root)
 		return;
