@@ -19,7 +19,6 @@
 typedef struct {
 	wtreeNode_t    cache_node;
 	nrbtreeNode_t  addr_node;
-	uint16_t       dummy;
 } segment_t;
 
 typedef struct {
@@ -170,11 +169,8 @@ void segment_cleanup(segmentRoot_t* root) {
 	segmentClr_t* clr_node;
 	while((clr_node = (segmentClr_t*) cdsl_slistRemoveHead(&root->clr_lentry))) {
 		clr_node = container_of(clr_node, segmentClr_t, clr_list);
-//		printf("--delete last seg ---\n");
-		print_segnode(&clr_node->segment_hdr.addr_node);
 		root->unmapper(clr_node->segment_hdr.cache_node.top - clr_node->segment_hdr.cache_node.base_size,
 				clr_node->segment_hdr.cache_node.base_size, &clr_node->segment_hdr.cache_node, root->ext_ctx);
-//		printf("--delete last seg ---\n");
 	}
 }
 
@@ -252,25 +248,16 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 	while((seg_clr = (segmentClr_t*)cdsl_slistRemoveHead(&cleanup_list))) {
 		seg_clr = container_of(seg_clr, segmentClr_t, clr_list);
 		clr_base = (void*) ((size_t)seg_clr->segment_hdr.cache_node.top - seg_clr->segment_hdr.cache_node.base_size);
-//		printf("-=-=delete-=-=-=\n");
-		print_segnode(&seg_clr->segment_hdr.addr_node);
-//		printf("seghdr : %lx   seg_cache :  %lx   segclr : %lx    base_seg : %lx \n",(size_t) &seg_clr->segment_hdr , (size_t)seg_cache, (size_t )seg_clr, (size_t)seg_base);
 		if(clr_base != seg_base) {
-//			printf("here\n");
-//			cdsl_nrbtreePrint(&seg_cache->addr_rbroot, print_segnode);
 			if(!cdsl_nrbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key)){
 				fprintf(stderr,"fuck\n");
 				exit(-1);
 			}
 			seg_root->unmapper(clr_base, seg_clr->segment_hdr.cache_node.base_size, &seg_clr->segment_hdr.cache_node,seg_root->ext_ctx);
-//			printf("there\n");
 		} else {
-//			printf("here1\n");
 			cdsl_slistNodeInit(&seg_clr->clr_list);
 			cdsl_slistPutHead(&seg_root->clr_lentry, &seg_clr->clr_list);
-//			printf("there1\n");
 		}
-//		printf("-=-=delete-=-=-=\n");
 	}
 	return TRAVERSE_OK;
 

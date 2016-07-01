@@ -1,7 +1,7 @@
 /*
- * arena.c
+ * bin.c
  *
- *  Created on: Jun 25, 2016
+ *  Created on: Jul 2, 2016
  *      Author: innocentevil
  */
 
