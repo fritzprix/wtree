@@ -25,7 +25,7 @@ typedef struct {
 	void*           ext_ctx;
 } bfitRoot_t;
 
-extern void bfit_root_init(bfitRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);
+extern bfitRoot_t* bfit_root_create(void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);
 extern void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz);
 extern void* bfit_grows_chunk(bfitRoot_t* root, void* chunk, size_t nsz);
 extern void bfit_free_chunk(bfitRoot_t* root, void* chunk);

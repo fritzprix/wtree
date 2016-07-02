@@ -13,16 +13,10 @@
 #endif
 
 typedef struct {
-	slistNode_t  cleanup_lhead;
-	wtreeNode_t  cache_node;
-}bfit_cleanupHeader_t;
-
-typedef struct {
 	uint32_t     prev_sz;
 	uint32_t     cur_sz;
 }bfit_chunkHeader_t;
 
-static DECLARE_WTREE_TRAVERSE_CALLBACK(bfit_oncleanup);
 static DECLARE_ONALLOCATE(bfit_internal_mapper);
 static DECLARE_ONFREE(bfit_internal_unmapper);
 
@@ -34,22 +28,27 @@ static wt_adapter cache_adapter = {
 };
 
 
-void bfit_root_init(bfitRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper) {
+bfitRoot_t* bfit_root_create(void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper) {
+	/**
+	 *  there is mapper given, so bootstrapping is possible
+	 */
+	if(!mapper || !unmapper) return NULL;
 
-	if(!root || !mapper || !unmapper) return;
+	bfitRoot_t* root;
+	wtreeRoot_t dummy;
+	size_t rsz;
+	void* chunk = mapper(1,&rsz,ext_ctx);
+	wtree_rootInit(&dummy, root, &cache_adapter, 0);
+	wtreeNode_t* node = wtree_baseNodeInit(&dummy,chunk, rsz);
+	root = wtree_reclaim_chunk_from_node(node, sizeof(bfitRoot_t));
 
 	root->ext_ctx = ext_ctx;
 	root->mapper = mapper;
 	root->unmapper = unmapper;
-
 	root->free_sz = root->total_sz = 0;
 	wtree_rootInit(&root->bfit_cache, root, &cache_adapter, 0);
-	size_t rsz;
-	void* chunk = root->mapper(1,&rsz,ext_ctx);
-	wtreeNode_t* node = wtree_baseNodeInit(&root->bfit_cache,chunk, rsz);
 	wtree_addNode(&root->bfit_cache, node,TRUE);
-	// TODO : prevent root cache node from being freed
-	wtree_reclaim_chunk_from_node(node, 4);
+	return root;
 }
 
 void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
@@ -61,7 +60,7 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 	sz += sizeof(bfit_chunkHeader_t);
 	sz = (sz + BFIT_ALIGNMENT) & ~(BFIT_ALIGNMENT - 1);
 
-	uint8_t* chunk = wtree_reclaim_chunk(&root->bfit_cache,sz , TRUE);
+	uint8_t* chunk = wtree_reclaim_chunk(&root->bfit_cache, sz, TRUE);
 	if(!chunk) {
 		fprintf(stderr, "Out of Memory!\n");
 		exit(-1);
@@ -133,25 +132,9 @@ void bfit_purge_cache(bfitRoot_t* root) {
 
 void bfit_clean_up(bfitRoot_t* root) {
 	if(!root) return;
-	slistEntry_t cleanup_list;
-	cdsl_slistEntryInit(&cleanup_list);
-	wtree_traverseBaseNode(&root->bfit_cache, bfit_oncleanup, &cleanup_list);
-	bfit_cleanupHeader_t* cln_hdr;
-	while((cln_hdr = (bfit_cleanupHeader_t*) cdsl_slistRemoveHead(&cleanup_list))) {
-		cln_hdr = container_of(cln_hdr, bfit_cleanupHeader_t,cleanup_lhead);
-		root->unmapper(cln_hdr->cache_node.top - cln_hdr->cache_node.base_size , cln_hdr->cache_node.base_size, &cln_hdr->cache_node, root->ext_ctx);
-	}
+	wtree_cleanup(&root->bfit_cache);
 }
 
-static DECLARE_WTREE_TRAVERSE_CALLBACK(bfit_oncleanup) {
-	if(node) return FALSE;
-
-	bfit_cleanupHeader_t* cleanup_hdr = container_of(node, bfit_cleanupHeader_t, cache_node);
-	slistEntry_t* cleanup_list = (slistEntry_t*) arg;
-	cdsl_slistNodeInit(&cleanup_hdr->cleanup_lhead);
-	cdsl_slistPutHead(cleanup_list, &cleanup_hdr->cleanup_lhead);
-	return TRUE;
-}
 
 static DECLARE_ONALLOCATE(bfit_internal_mapper) {
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;

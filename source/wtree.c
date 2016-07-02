@@ -12,6 +12,19 @@
 #include <string.h>
 #include "cdsl_slist.h"
 
+typedef struct {
+	slistNode_t    clr_lhead;
+	wtreeNode_t    node;
+} clr_node_t;
+
+typedef struct {
+	slistEntry_t   clr_list;
+	wtreeRoot_t    *root;
+} clr_argument;
+
+static DECLARE_WTREE_TRAVERSE_CALLBACK(for_each_node_destroy);
+
+
 static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact);
 static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz);
 static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node);
@@ -31,7 +44,7 @@ static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
 void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, const wt_adapter* adapter, size_t cust_hdr_sz) {
-	if(!root || !adapter || !adapter->onallocate || !adapter->onfree) return;
+	if(!root || !adapter || !adapter->onfree) return;
 	root->entry = NULL;
 	root->total_sz = root->used_sz = 0;
 	root->adapter = adapter;
@@ -59,8 +72,7 @@ void wtree_restorePreserved(wtreeRoot_t* root, uaddr_t addr, uint32_t sz, void* 
 
 
 wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
-	if(!addr || !sz)
-		return NULL;
+	if(!addr || !sz) return NULL;
 	uint8_t* chunk = (uint8_t*) addr;
 	wtreeNode_t* node = (wtreeNode_t*) &chunk[sz - root->hdr_sz];
 	node->size = node->base_size = sz;
@@ -70,20 +82,31 @@ wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t sz) {
 }
 
 void wtree_purge(wtreeRoot_t* root) {
-	if(!root)
-		return;
+	if(!root) return;
 	root->entry = purge_rc(root,root->entry);
 }
 
+void wtree_cleanup(wtreeRoot_t* root) {
+	if(!root) return;
+	slistEntry_t clr_list;
+	clr_node_t* clrn;
+	cdsl_slistEntryInit(&clr_list);
+	wtree_traverseBaseNode(root, for_each_node_destroy, &clr_list);
+	while((clrn = (clr_node_t*)cdsl_slistRemoveHead(&clr_list))) {
+		clrn = container_of(clrn, clr_node_t, clr_lhead);
+		root->adapter->onfree(clrn->node.top - clrn->node.base_size,  clrn->node.base_size, &clrn->node, root->ext_ctx);
+	}
+	root->entry = NULL;
+	root->total_sz = root->used_sz = 0;
+}
+
 void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg) {
-	if(!root)
-		return;
+	if(!root) return;
 	traverse_base_rc(root->entry, callback, arg);
 }
 
 void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
-	if(!root || !node)
-		return;
+	if(!root || !node) return;
 	root->entry = insert_rc(root,root->entry,node,compact);
 }
 
@@ -97,12 +120,15 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	wtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - root->hdr_sz) < sz) {
-		size_t seg_sz;
-		wtreeNode_t* nnode = root->adapter->onallocate(sz,&seg_sz,root->ext_ctx);
-		nnode = wtree_baseNodeInit(root, nnode, seg_sz);
-		root->entry = insert_rc(root, root->entry, nnode, FALSE);
-		largest = root->entry;
-		chunk = largest->top;
+		if (root->adapter->onallocate) {
+			size_t seg_sz;
+			wtreeNode_t* nnode = root->adapter->onallocate(sz, &seg_sz,
+					root->ext_ctx);
+			nnode = wtree_baseNodeInit(root, nnode, seg_sz);
+			root->entry = insert_rc(root, root->entry, nnode, FALSE);
+			largest = root->entry;
+			chunk = largest->top;
+		} else return NULL;
 	}
 	chunk = chunk - largest->size;
 	largest->size -= sz;
@@ -464,6 +490,7 @@ static wtreeNode_t* merge_from_leftend(wtreeRoot_t* root, wtreeNode_t* left, wtr
 }
 
 
+
 static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wtreeNode_t* merger) {
 	/*
 	 *                                   |------------|header 1|
@@ -489,6 +516,14 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 	return right;
 }
 
+static DECLARE_WTREE_TRAVERSE_CALLBACK(for_each_node_destroy) {
+	slistEntry_t* clr_list = (slistEntry_t*) arg;
+	clr_node_t* clr_node = container_of(node, clr_node_t, node);
+	cdsl_slistNodeInit(&clr_node->clr_lhead);
+	cdsl_slistPutHead(clr_list, &clr_node->clr_lhead);
+	return TRUE;
+}
+
 static void print_rc(wtreeNode_t* parent, int depth) {
 	if (!parent)
 		return;
@@ -503,3 +538,4 @@ static void print_tab(int times) {
 	while (times--)
 		printf("\t");
 }
+
