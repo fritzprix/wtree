@@ -6,4 +6,5 @@ OBJ-y+= nwtree \
 		wtmalloc\
 		quantum\
 		segment\
-		bestfit
+		bestfit\
+		bin

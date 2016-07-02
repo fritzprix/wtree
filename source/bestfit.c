@@ -12,6 +12,10 @@
 #define BFIT_ALIGNMENT                         4
 #endif
 
+#ifndef BFIT_CACHE_PURGE_THRESHOLD
+#define BFIT_CACHE_PURGE_THRESHOLD             6
+#endif
+
 typedef struct {
 	uint32_t     prev_sz;
 	uint32_t     cur_sz;
@@ -120,7 +124,7 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 	root->free_sz += *cur_sz + sizeof(uint32_t);
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, cur_sz, *cur_sz + sizeof(uint32_t), NULL);
 	wtree_addNode(&root->bfit_cache, node, TRUE);
-	if(root->free_sz > ((root->total_sz * 15) >> 4)) {
+	if(root->free_sz > (((root->total_sz << BFIT_CACHE_PURGE_THRESHOLD) - root->total_sz) >> BFIT_CACHE_PURGE_THRESHOLD)) {
 		wtree_purge(&root->bfit_cache);
 	}
 }
