@@ -2,7 +2,6 @@
 	"TEST_TARGET" : {
 		"type":"enum",
 		"enum": [
-			"nwt_test",
 			"wt_test",
 			"quantum_test",
 			"segment_test",

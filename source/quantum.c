@@ -77,10 +77,16 @@ struct quantum_node {
 	};
 };
 
+struct getsz_arg {
+	void*  chunk;
+	size_t sz;
+};
+
 const size_t QMAP_UNIT_OFFSET = (sizeof(qmap_t) << 3);
 
 static DECLARE_TRAVERSE_CALLBACK(try_purge_for_each_qnode);
 static DECLARE_TRAVERSE_CALLBACK(for_each_quantum_print);
+static DECLARE_TRAVERSE_CALLBACK(find_chunk_size);
 static DECLARE_WTREE_TRAVERSE_CALLBACK(force_purge_for_each_pool);
 
 
@@ -148,6 +154,16 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz) {
 	}
 	return chnk;
 }
+
+size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk) {
+	if(!root) return 0;
+	struct getsz_arg arg;
+	arg.chunk = chunk;
+	arg.sz = 0;
+	cdsl_nrbtreeTraverseTarget(&root->addr_rbroot,find_chunk_size, chunk, &arg);
+	return arg.sz;
+}
+
 
 int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	if(!chunk)
@@ -508,9 +524,19 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_quantum_print) {
 	return 0;
 }
 
+static DECLARE_TRAVERSE_CALLBACK(find_chunk_size) {
+	struct getsz_arg* gsz = (struct getsz_arg*) arg;
+	quantumNode_t* qnode = container_of(node, quantumNode_t, addr_rbnode);
+	if((gsz->chunk < qnode->top) && (gsz->chunk > qnode)){
+		gsz->sz = qnode->quantum;
+		return TRAVERSE_BREAK;
+	}
+	return TRAVERSE_OK;
+}
+
+
 static DECLARE_WTREE_TRAVERSE_CALLBACK(force_purge_for_each_pool) {
-	if(!node)
-		return FALSE;
+	if(!node) return FALSE;
 	slistEntry_t* clr_list = (slistEntry_t*) arg;
 	cleanupNode_t* clnode =  (cleanupNode_t*) ((size_t) node - offsetof(cleanupNode_t,node));
 	cdsl_slistNodeInit(&clnode->clr_lhead);

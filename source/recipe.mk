@@ -1,10 +1,9 @@
 SRC-y+=./source
 INC-y+=./include
-OBJ-y+= nwtree \
-		nwtmalloc\
-		wtree\
+OBJ-y+= wtree\
 		wtmalloc\
 		quantum\
 		segment\
 		bestfit\
-		bin
+		bin\
+		yamalloc
