@@ -160,7 +160,7 @@ size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk) {
 	struct getsz_arg arg;
 	arg.chunk = chunk;
 	arg.sz = 0;
-	cdsl_nrbtreeTraverseTarget(&root->addr_rbroot,find_chunk_size, chunk, &arg);
+	cdsl_nrbtreeTraverseTarget(&root->addr_rbroot,find_chunk_size, (trkey_t) chunk, &arg);
 	return arg.sz;
 }
 
@@ -527,7 +527,7 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_quantum_print) {
 static DECLARE_TRAVERSE_CALLBACK(find_chunk_size) {
 	struct getsz_arg* gsz = (struct getsz_arg*) arg;
 	quantumNode_t* qnode = container_of(node, quantumNode_t, addr_rbnode);
-	if((gsz->chunk < qnode->top) && (gsz->chunk > qnode)){
+	if(((size_t) gsz->chunk < (size_t) qnode->top) && ((size_t) gsz->chunk > (size_t) qnode)) {
 		gsz->sz = qnode->quantum;
 		return TRAVERSE_BREAK;
 	}

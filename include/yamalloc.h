@@ -19,7 +19,7 @@ extern "C" {
 
 extern __attribute__((malloc)) void* yam_malloc(size_t sz);
 extern __attribute__((malloc)) void* yam_realloc(void* chunk, size_t sz);
-extern __attribute__((malloc)) void* yam_calleoc(size_t sz, size_t cnt);
+extern __attribute__((malloc)) void* yam_calloc(size_t sz, size_t cnt);
 extern void yam_free(void* chunk);
 
 extern void yam_init();

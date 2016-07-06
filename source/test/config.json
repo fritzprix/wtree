@@ -6,7 +6,8 @@
 			"quantum_test",
 			"segment_test",
 			"bfit_test",
-			"bin_test"
+			"bin_test",
+			"malloc_test"
 		],
 		"default": 1
 	},
