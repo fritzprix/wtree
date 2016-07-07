@@ -62,6 +62,7 @@ void bin_cache_unbind(binRoot_t* bin, binCache_t* cache) {
 	cache->ref_cnt--;
 	if(!cache->ref_cnt) {
 		wtree_cleanup(&cache->bin_cache);
+		wtree_rootInit(&cache->bin_cache, cache, &cache_adapter, 0);
 	}
 	pthread_mutex_unlock(&cache->lock);
 }
@@ -71,6 +72,14 @@ void bin_root_dispose(binRoot_t* bin, binCache_t* cache, void* addr, size_t sz){
 
 	wtreeNode_t* cached_chunk = wtree_baseNodeInit(&cache->bin_cache, addr, sz);
 	pthread_mutex_lock(&cache->lock);
+	if(!cache->ref_cnt) {
+		/**
+		 * cache is unbound state
+		 */
+		bin_internal_unmapper(addr, sz, cached_chunk, cache);
+		pthread_mutex_unlock(&cache->lock);
+		return;
+	}
 	if(wtree_totalSize(&cache->bin_cache) > BIN_PURGE_THRESHOLD) {
 		wtree_purge(&cache->bin_cache);
 	}

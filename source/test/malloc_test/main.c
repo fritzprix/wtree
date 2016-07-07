@@ -59,6 +59,8 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+//	yam_init();
+//	perf_test_nmalloc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -359,42 +361,50 @@ static void print_report(const char* test_name, struct test_report* report)
 
 static void perf_test_nmalloc(void)
 {
-	int i;
+	int i,j;
 	struct test_report rpt = {0,};
-	for(i = 0;i < TH_CNT;i++) {
-		pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
-	}
-	for(i = 0;i < TH_CNT;i++) {
-		pthread_join(thrs[i], NULL);
-		rpt.free_time += reports[i].free_time;
-		rpt.malloc_time += reports[i].malloc_time;
-		rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
-		rpt.rand_free_only_time += reports[i].rand_free_only_time;
-		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
-		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
-		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;
-		rpt.realloc_time += reports[i].realloc_time;
+	for (j = 0; j < 10; j++) {
+		for (i = 0; i < TH_CNT; i++) {
+			pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
+		}
+		for (i = 0; i < TH_CNT; i++) {
+			pthread_join(thrs[i], NULL);
+			rpt.free_time += reports[i].free_time;
+			rpt.malloc_time += reports[i].malloc_time;
+			rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
+			rpt.rand_free_only_time += reports[i].rand_free_only_time;
+			rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+			rpt.repeat_deep_malloc_free_time_fix_size +=
+					reports[i].repeat_deep_malloc_free_time_fix_size;
+			rpt.repeat_deep_malloc_free_time_rnd_size +=
+					reports[i].repeat_deep_malloc_free_time_rnd_size;
+			rpt.realloc_time += reports[i].realloc_time;
+		}
 	}
 	print_report("new malloc",&rpt);
 }
 
 static void perf_test_oldmalloc(void)
 {
-	int i;
+	int j,i;
 	struct test_report rpt = {0,};
-	for(i = 0;i < TH_CNT;i++) {
-		pthread_create(&thrs[i], NULL, malloc_test,&reports[i]);
-	}
-	for(i = 0;i < TH_CNT;i++) {
-		pthread_join(thrs[i], NULL);
-		rpt.free_time += reports[i].free_time;
-		rpt.malloc_time += reports[i].malloc_time;
-		rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
-		rpt.rand_free_only_time += reports[i].rand_free_only_time;
-		rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
-		rpt.repeat_deep_malloc_free_time_fix_size += reports[i].repeat_deep_malloc_free_time_fix_size;
-		rpt.repeat_deep_malloc_free_time_rnd_size += reports[i].repeat_deep_malloc_free_time_rnd_size;
-		rpt.realloc_time += reports[i].realloc_time;
+	for(j = 0;j < 10; j++) {
+		for (i = 0; i < TH_CNT; i++) {
+			pthread_create(&thrs[i], NULL, malloc_test, &reports[i]);
+		}
+		for (i = 0; i < TH_CNT; i++) {
+			pthread_join(thrs[i], NULL);
+			rpt.free_time += reports[i].free_time;
+			rpt.malloc_time += reports[i].malloc_time;
+			rpt.rand_malloc_only_time += reports[i].rand_malloc_only_time;
+			rpt.rand_free_only_time += reports[i].rand_free_only_time;
+			rpt.repeat_malloc_free_time += reports[i].repeat_malloc_free_time;
+			rpt.repeat_deep_malloc_free_time_fix_size +=
+					reports[i].repeat_deep_malloc_free_time_fix_size;
+			rpt.repeat_deep_malloc_free_time_rnd_size +=
+					reports[i].repeat_deep_malloc_free_time_rnd_size;
+			rpt.realloc_time += reports[i].realloc_time;
+		}
 	}
 	print_report("old malloc", &rpt);
 }
