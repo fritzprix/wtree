@@ -49,7 +49,8 @@ bfitRoot_t* bfit_root_create(void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_
 	root->ext_ctx = ext_ctx;
 	root->mapper = mapper;
 	root->unmapper = unmapper;
-	root->free_sz = root->total_sz = 0;
+	root->free_sz = root->total_sz = rsz;
+	root->free_sz -= sizeof(bfitRoot_t);
 	wtree_rootInit(&root->bfit_cache, root, &cache_adapter, 0);
 	wtree_addNode(&root->bfit_cache, node,TRUE);
 	return root;

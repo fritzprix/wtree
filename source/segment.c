@@ -72,7 +72,8 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
 	segment_cache->bootstrap_seg = chunk;
 
-	segment_cache->free_sz = segment_cache->total_sz = 0;
+	segment_cache->free_sz = segment_cache->total_sz = rsz;
+	segment_cache->free_sz -= sizeof(segmentCache_t);
 	segment_cache->root = root;
 	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
 	wtree_addNode(&segment_cache->seg_pool, node, TRUE);
@@ -210,6 +211,7 @@ static DECLARE_ONALLOCATE(segment_internal_mapper) {
 	while(seg_sz < total_sz) seg_sz <<= 1;
 	void* chunk= (segment_t*) seg_cache->root->mapper(seg_sz, rsz, seg_cache->root->ext_ctx);
 	seg_cache->total_sz += *rsz;
+	seg_cache->free_sz += *rsz;
 	return chunk;
 }
 
@@ -219,6 +221,7 @@ static DECLARE_ONFREE(segment_internal_unmapper) {
 
 	segmentCache_t* seg_cache = (segmentCache_t*) ext_ctx;
 	segment_t* segment = container_of(wtnode, segment_t, cache_node);
+	seg_cache->total_sz -= sz;
 	seg_cache->free_sz -= sz;
 	return seg_cache->root->unmapper(addr, sz, wtnode, seg_cache->root->ext_ctx);
 }

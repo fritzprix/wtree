@@ -171,6 +171,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	nrbtreeNode_t* cnode = cdsl_nrbtreeTop(&root->addr_rbroot);
 	quantumNode_t* qnode;
 
+
 	// find original quantum node by looking up address tree (red black tree)
 	while(cnode) {
 		qnode = container_of(cnode,quantumNode_t, addr_rbnode);
@@ -224,7 +225,6 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				}
 
 				// delete quantum node from address lookup tree
-				printf("node freed "); quantum_node_print(qnode,0);
 				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
 				wtreeNode_t* free_q = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode, NULL);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE);

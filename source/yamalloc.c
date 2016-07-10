@@ -154,7 +154,6 @@ static DECLARE_ONALLOCATE(segment_mapper) {
 
 //	void* chunk = bin_root_recycle(&bin_root, pt_cache.bin_cache, total_sz);
 //	if(chunk){
-//		printf("recycled\n");
 //		return chunk;
 //	}
 
