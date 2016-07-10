@@ -111,7 +111,7 @@ void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 }
 
 
-void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
+void* wtree_reclaim_chunk(wtreeRoot_t* root, size_t sz,BOOL compact) {
 
 	if (!root || (sz <= 0))	return NULL;
 
@@ -136,7 +136,12 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, uint32_t sz,BOOL compact) {
 	return chunk;
 }
 
-void* wtree_reclaim_chunk_from_node(wtreeNode_t* node, uint32_t sz) {
+void* wtree_reclaim_aligned_chunk(wtreeRoot_t* root, size_t sz, size_t alignment, BOOL compact) {
+	return NULL;
+}
+
+
+void* wtree_reclaim_chunk_from_node(wtreeNode_t* node, size_t sz) {
 
 	if(!node || !sz) return NULL;
 
@@ -147,7 +152,7 @@ void* wtree_reclaim_chunk_from_node(wtreeNode_t* node, uint32_t sz) {
 }
 
 
-void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, uint32_t nsz) {
+void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, size_t nsz) {
 	if(!root || !(*node) || !nsz)
 		return NULL;
 	if(!root->entry)

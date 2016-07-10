@@ -96,6 +96,7 @@ static void quantum_add(quantumRoot_t* root, quantum_t* quantum);
 static void quantum_node_init(quantumNode_t* node, uint16_t qsz,ssize_t hsz, BOOL base);
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode);
 static void* quantum_node_alloc_unit(quantumNode_t* node);
+static void* quantum_node_alloc_aligned_unit(quantumNode_t* node);
 static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk);
 static quantumNode_t* quantum_node_insert_rc(quantumNode_t* parent, quantumNode_t* item);
 static quantumNode_t* quantum_node_rotate_right(quantumNode_t* qnode);
@@ -154,6 +155,11 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz) {
 	}
 	return chnk;
 }
+
+void* quantum_reclain_aligned_chunk(quantumRoot_t* root, size_t alignment, size_t sz) {
+
+}
+
 
 size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk) {
 	if(!root) return 0;
@@ -408,10 +414,8 @@ static quantumNode_t* quantum_node_rotate_left(quantumNode_t* qnode) {
 
 
 static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
-	if(!qnode)
-		return NULL;
-	if(!qnode->free_cnt)
-		return NULL;
+	if(!qnode || !qnode->free_cnt) 	return NULL;
+
 	qmap_t* cmap = qnode->map;
 	uint16_t offset = 0;
 	qmap_t  vmap = 0;
@@ -439,6 +443,27 @@ static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 	}
 	return chnk;
 }
+
+static void* quantum_node_alloc_aligned_unit(quantumNode_t* qnode) {
+	if(!qnode || !qnode->free_cnt) return NULL;
+
+	qmap_t* cmap = qnode->map;
+	uint16_t offset = 0;
+	qmap_t vmap = 0;
+	qmap_t imap = 1;
+	while(!*cmap && (offset < QUANTUM_COUNT_MAX)) {
+		cmap++;
+		offset += QMAP_UNIT_OFFSET;
+	}
+	vmap = *cmap;
+	if(!vmap) {
+		fprintf(stderr, "bitmap is corrupted\n");
+		quantum_node_print(qnode, 0);
+		exit(-1);
+	}
+	return NULL;
+}
+
 
 static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk) {
 	if(!qnode)

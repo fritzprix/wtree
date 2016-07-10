@@ -3,7 +3,6 @@
 #include "yamalloc.h"
 #include "segment.h"
 
-#include <jemalloc/jemalloc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -68,6 +67,8 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+//	yam_init();
+//	perf_test_nmalloc();
 
 	pid_t pid = fork();
 	if(pid > 0) {
@@ -87,6 +88,7 @@ int main(void){
 		}
 	}
 	else if(pid == 0) {
+		yam_init();
 		perf_test_nmalloc();
 	}
 	else
@@ -318,9 +320,6 @@ static void* test_ym(void* arg) {
 			yam_free(lp);
 		}
 	}
-	clock_gettime(CLOCK_REALTIME,&endts);
-	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
-	report->repeat_deep_malloc_free_time_fixed_mid_size = dt;
 
 	clock_gettime(CLOCK_REALTIME, &startts);
 	for (loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
@@ -345,7 +344,9 @@ static void* test_ym(void* arg) {
 	report->repeat_deep_malloc_free_time_fixed_small_size = dt;
 
 
-
+	clock_gettime(CLOCK_REALTIME,&endts);
+	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
+	report->repeat_deep_malloc_free_time_fixed_mid_size = dt;
 
 
 

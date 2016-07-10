@@ -55,7 +55,7 @@ static void yam_bootstrap(void);
 static void yam_destroy(void*);
 
 
-__attribute__((malloc)) void* yam_malloc(size_t sz) {
+void* yam_malloc(size_t sz) {
 	if(!pt_cache.bestfit_alloc) {
 		yam_bootstrap();
 	}
@@ -65,7 +65,7 @@ __attribute__((malloc)) void* yam_malloc(size_t sz) {
 	return quantum_reclaim_chunk(&pt_cache.quantum_alloc, sz);
 }
 
-__attribute__((malloc)) void* yam_realloc(void* chunk, size_t sz) {
+void* yam_realloc(void* chunk, size_t sz) {
 	if(!pt_cache.bestfit_alloc) {
 		fprintf(stderr, "heap invalid state\n");
 		exit(-1);
@@ -87,7 +87,7 @@ __attribute__((malloc)) void* yam_realloc(void* chunk, size_t sz) {
 	return bfit_grows_chunk(pt_cache.bestfit_alloc, chunk, sz);
 }
 
-__attribute__((malloc)) void* yam_calloc(size_t sz, size_t cnt) {
+void* yam_calloc(size_t sz, size_t cnt) {
 	if(!sz || !cnt) return NULL;
 	if(!pt_cache.bestfit_alloc) {
 		yam_bootstrap();
@@ -113,10 +113,15 @@ void yam_free(void* chunk) {
 	}
 }
 
-void yam_init() {
+__attribute__((constructor)) void yam_init() {
 	bin_root_init(&bin_root, YAM_BIN_MAX_SIZE, bin_unmapper, NULL);
 	pthread_key_create(&yam_key, yam_destroy);
 }
+
+__attribute__((destructor)) void yam_exit() {
+	pthread_key_delete(yam_key);
+}
+
 
 static void yam_bootstrap(void) {
 	pthread_t self = pthread_self();

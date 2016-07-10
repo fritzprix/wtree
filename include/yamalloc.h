@@ -10,19 +10,24 @@
 
 #include <stdlib.h>
 #include <stddef.h>
+//#include <malloc.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-
-extern __attribute__((malloc)) void* yam_malloc(size_t sz);
-extern __attribute__((malloc)) void* yam_realloc(void* chunk, size_t sz);
-extern __attribute__((malloc)) void* yam_calloc(size_t sz, size_t cnt);
+extern __attribute__((constructor)) void yam_init();
+extern __attribute__((destructor)) void yam_exit();
 extern void yam_free(void* chunk);
+extern void* yam_malloc(size_t sz);
+extern void* yam_realloc(void* chunk, size_t sz);
+extern void* yam_calloc(size_t sz, size_t cnt);
 
-extern void yam_init();
+#ifdef __YAM_MALLOC
+#define malloc               yam_malloc
+#define realloc              yam_realloc
+#define free                 yam_free
+#endif
 
 
 #ifdef __cplusplus
