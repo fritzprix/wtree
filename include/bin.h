@@ -24,7 +24,7 @@ extern "C" {
 
 
 #ifndef BIN_SPREAD_FACTOR
-#define BIN_SPREAD_FACTOR     15
+#define BIN_SPREAD_FACTOR     7
 #endif
 
 typedef struct bin_root binRoot_t;

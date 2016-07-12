@@ -27,9 +27,9 @@
 #define SEGMENT_SMALL_KEY         ((trkey_t) 1)
 #define SEGMENT_LARGE_KEY         ((trkey_t) 2)
 
-#define SEGMENT_UNIT_SIZE        (1 << 24)
-#define BFIT_UNIT_SIZE           (1 << 21)
-#define Q_UNIT_SIZE              (1 << 20)
+#define SEGMENT_UNIT_SIZE         (1 << 24)
+#define BFIT_UNIT_SIZE            (1 << 21)
+#define Q_UNIT_SIZE               (1 << 20)
 
 typedef struct {
 	quantumRoot_t   quantum_alloc;
@@ -141,6 +141,7 @@ static void yam_bootstrap(void) {
 
 static void yam_destroy(void* chunk) {
 	binCache_t* bin_cache = pt_cache.bin_cache;
+	bfit_clean_up(pt_cache.bestfit_alloc);
 	segment_cleanup(&pt_cache.segment_cache);
 	bin_cache_unbind(&bin_root, bin_cache);
 }
@@ -157,18 +158,18 @@ static DECLARE_ONALLOCATE(segment_mapper) {
 	while(seg_sz < total_sz) seg_sz <<= 1;
 	*rsz = seg_sz;
 
-//	void* chunk = bin_root_recycle(&bin_root, pt_cache.bin_cache, total_sz);
-//	if(chunk){
-//		return chunk;
-//	}
+	void* chunk = bin_root_recycle(&bin_root, pt_cache.bin_cache, total_sz);
+	if(chunk){
+		return chunk;
+	}
 
 	return mmap(NULL, seg_sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NONBLOCK, -1, 0);
 }
 
 static DECLARE_ONFREE(segment_unmapper) {
 	if(!addr) return -1;
-//	bin_root_dispose(&bin_root, pt_cache.bin_cache, addr, sz);
-	return munmap(addr, sz);
+	bin_root_dispose(&bin_root, pt_cache.bin_cache, addr, sz);
+//	return munmap(addr, sz);
 	return 0;
 }
 

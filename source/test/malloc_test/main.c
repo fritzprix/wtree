@@ -23,7 +23,7 @@ static void* test_ym(void* );
 #endif
 
 #define LOOP_CNT                           40
-#define TEST_CNT                           40000
+#define TEST_CNT                           60000
 #define MAX_REQ_SIZE                       8192
 #define TH_CNT                             8
 
@@ -419,7 +419,7 @@ static void perf_test_nmalloc(void)
 {
 	int i,j;
 	struct test_report rpt = {0,};
-	for (j = 0; j < 10; j++) {
+	for (j = 0; j < 1000; j++) {
 		printf("LOOP : %d\n",j);
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
