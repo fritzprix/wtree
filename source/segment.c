@@ -122,10 +122,6 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 
 	cache = container_of(cache, segmentCache_t, rbnode);
 	segment_t* segment = (segment_t*) wtree_nodeInit(&cache->seg_pool, addr, sz, NULL);
-	if(!segment) {
-		fprintf(stderr, "unexpected null segment");
-		exit(-1);
-	}
 	segment = container_of(segment, segment_t, cache_node);
 	wtree_addNode(&cache->seg_pool, &segment->cache_node, TRUE);
 	cache->free_sz += sz;
@@ -192,7 +188,9 @@ static DECLARE_ONADDED(segment_internal_onadd) {
 	segment_t* segment = container_of(node, segment_t, cache_node);
 	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
 	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) segment->cache_node.top - segment->cache_node.base_size);
-	cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node);
+	if(segment->cache_node.base_size) {
+		cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node);
+	}
 }
 
 static DECLARE_ONREMOVED(segment_internal_onremoved) {
@@ -252,10 +250,7 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 		seg_clr = container_of(seg_clr, segmentClr_t, clr_list);
 		clr_base = (void*) ((size_t)seg_clr->segment_hdr.cache_node.top - seg_clr->segment_hdr.cache_node.base_size);
 		if(clr_base != seg_base) {
-			if(!cdsl_nrbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key)){
-				fprintf(stderr,"fuck\n");
-				exit(-1);
-			}
+			cdsl_nrbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key);
 			seg_root->unmapper(clr_base, seg_clr->segment_hdr.cache_node.base_size, &seg_clr->segment_hdr.cache_node,seg_root->ext_ctx);
 		} else {
 			cdsl_slistNodeInit(&seg_clr->clr_list);

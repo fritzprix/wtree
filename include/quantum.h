@@ -19,7 +19,7 @@ extern "C" {
 
 
 #define QUANTUM_SPACE           ((uint16_t) 2)
-#define QUANTUM_MAX             ((uint16_t) 48)
+#define QUANTUM_MAX             ((uint16_t) 32)
 #define QUANTUM_COUNT_MAX		((uint16_t) 2048)
 
 

@@ -135,7 +135,7 @@ void bfit_purge_cache(bfitRoot_t* root) {
 	wtree_purge(&root->bfit_cache);
 }
 
-void bfit_clean_up(bfitRoot_t* root) {
+void bfit_cleanup(bfitRoot_t* root) {
 	if(!root) return;
 	wtree_cleanup(&root->bfit_cache);
 }

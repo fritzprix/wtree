@@ -23,9 +23,10 @@ static void* test_ym(void* );
 #endif
 
 #define LOOP_CNT                           40
-#define TEST_CNT                           60000
+#define TEST_CNT                           40000
+#define REALLOC_MAX_SIZE                   (1 << 22)
 #define MAX_REQ_SIZE                       8192
-#define TH_CNT                             8
+#define TH_CNT                             20
 
 
 struct test_report {
@@ -225,17 +226,18 @@ static void* malloc_test(void* arg)
 
 
 	clock_gettime(CLOCK_REALTIME,&startts);
-	p = (large_person_t*) malloc(1);
-	for(cnt = 1;cnt < TEST_CNT;cnt <<= 1)
+	sp = (small_person_t*) malloc(sizeof(small_person_t));
+	for(cnt = sizeof(small_person_t);cnt < REALLOC_MAX_SIZE;cnt <<= 1)
 	{
-		p = (large_person_t*) realloc(p, cnt);
-		if(!p)
+		sp = (small_person_t*) realloc(sp, cnt);
+		if(!sp)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
 		}
+		cdsl_nrbtreeNodeInit(&sp->node,0);
 	}
-	free(p);
 	clock_gettime(CLOCK_REALTIME,&endts);
+	free(sp);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
 
@@ -375,17 +377,18 @@ static void* test_ym(void* arg) {
 
 
 	clock_gettime(CLOCK_REALTIME,&startts);
-	lp = (large_person_t*) yam_malloc(1);
-	for(cnt = 1;cnt < TEST_CNT;cnt <<= 1)
+	sp = (small_person_t*) yam_malloc(sizeof(small_person_t));
+	for(cnt = sizeof(small_person_t);cnt < REALLOC_MAX_SIZE;cnt <<= 1)
 	{
-		lp = (large_person_t*) yam_realloc(lp, cnt);
-		if(!lp)
+		sp = (small_person_t*) yam_realloc(sp, cnt);
+		if(!sp)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
 		}
+		cdsl_nrbtreeNodeInit(&sp->node,0);
 	}
-	yam_free(lp);
 	clock_gettime(CLOCK_REALTIME,&endts);
+	yam_free(sp);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
 
@@ -400,6 +403,7 @@ static void print_report(const char* test_name, struct test_report* report)
 	printf("LOOP Count : %d\n",LOOP_CNT);
 	printf("TEST SIZE : %d\n", TEST_CNT);
 	printf("REQ Size VARIANCE %d\n", MAX_REQ_SIZE);
+	printf("REALLOC MAX Size %d\n", REALLOC_MAX_SIZE);
 	printf("# of Thread : %d\n",TH_CNT);
 	printf("==== START OF TEST REPORT[%s] ====\n", test_name);
 	printf("total time taken for repeated malloc & free of random size : %f\n",report->repeat_malloc_free_time);
@@ -419,7 +423,7 @@ static void perf_test_nmalloc(void)
 {
 	int i,j;
 	struct test_report rpt = {0,};
-	for (j = 0; j < 1000; j++) {
+	for (j = 0; j < 5; j++) {
 		printf("LOOP : %d\n",j);
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
@@ -447,7 +451,8 @@ static void perf_test_oldmalloc(void)
 {
 	int j,i;
 	struct test_report rpt = {0,};
-	for(j = 0;j < 10; j++) {
+	for(j = 0;j < 5; j++) {
+		printf("LOOP : %d\n",j);
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, malloc_test, &reports[i]);
 		}

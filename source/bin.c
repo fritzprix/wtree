@@ -76,17 +76,19 @@ binCache_t* bin_cache_bind(binRoot_t* bin, trkey_t key) {
 void bin_cache_unbind(binRoot_t* bin, binCache_t* cache) {
 	if(!bin || !cache) return;
 	pthread_mutex_lock(&cache->lock);
-	/*
+	cache->ref_cnt--;
 	if(!cache->ref_cnt) {
 		printf("CLEAN UP BEGIN -------\n");
+		printf("NOW SIZE (%zu / %zu) @ %d\n",cache->free_sz, cache->total_sz, cache->idx);
+		wtree_print(&cache->bin_cache);
 		wtree_cleanup(&cache->bin_cache);
 //		wtree_purge(&cache->bin_cache);
 		wtree_rootInit(&cache->bin_cache, cache, &cache_adapter, sizeof(bin_cacheNode_t));
 		cdsl_nrbtreeRootInit(&cache->addr_root);
-		cache->total_sz = cache->free_sz = 0;
 		printf("CLEAN UP END   -------\n");
-	}*/
-	cache->ref_cnt--;
+		printf("NOW SIZE (%zu / %zu) @ %d\n",cache->free_sz, cache->total_sz, cache->idx);
+		cache->free_sz = cache->total_sz = 0;
+	}
 	pthread_mutex_unlock(&cache->lock);
 }
 
@@ -106,22 +108,32 @@ void bin_root_dispose(binRoot_t* bin, binCache_t* cache, void* addr, size_t sz){
 	}
 
 	pthread_mutex_lock(&cache->lock);
-	if(cache->total_sz > BIN_PURGE_THRESHOLD) {
-		bin->unmapper(addr, sz, NULL, bin->ext_ctx);
-//		wtree_print(&cache->bin_cache);
-//		printf("PURGE BEGIN @ %d by %lu----------------\n",cache->idx,self);
-		wtree_purge(&cache->bin_cache);
-//		printf("PURGE END   @ %d by %lu----------------\n",cache->idx,self);
-		pthread_mutex_unlock(&cache->lock);
-		return;
-	}
+
 	cdsl_nrbtreeTraverseTarget(&cache->addr_root, bin_is_chunk_contained, (trkey_t) addr, &contained_check);
 	cache->free_sz += sz;
 	if(contained_check.contained) {
+		if(cache->total_sz > BIN_PURGE_THRESHOLD) {
+		//		bin->unmapper(addr, sz, NULL, bin->ext_ctx);
+		//		wtree_print(&cache->bin_cache);
+		//		printf("PURGE BEGIN @ %d by %lu----------------\n",cache->idx,self);
+				wtree_purge(&cache->bin_cache);
+		//		printf("PURGE END   @ %d by %lu----------------\n",cache->idx,self);
+		//		pthread_mutex_unlock(&cache->lock);
+		//		return;
+		}
 		cache_chunk = wtree_nodeInit(&cache->bin_cache, addr, sz, NULL);
 //		printf("(+) PARTIAL CHUNK %zu @ %d\n",sz, cache->idx);
 //		printf("NOW SIZE (%zu / %zu) @ %d\n",cache->free_sz, cache->total_sz, cache->idx);
 	} else {
+		if(cache->total_sz > BIN_PURGE_THRESHOLD) {
+				bin->unmapper(addr, sz, NULL, bin->ext_ctx);
+		//		wtree_print(&cache->bin_cache);
+		//		printf("PURGE BEGIN @ %d by %lu----------------\n",cache->idx,self);
+//				wtree_purge(&cache->bin_cache);
+		//		printf("PURGE END   @ %d by %lu----------------\n",cache->idx,self);
+				pthread_mutex_unlock(&cache->lock);
+				return;
+		}
 		cache_chunk = wtree_baseNodeInit(&cache->bin_cache, addr, sz);
 		cache->total_sz += sz;
 //		printf("(+) NEW SEGMENT %zu @ %d\n", sz, cache->idx);
@@ -137,6 +149,10 @@ void* bin_root_recycle(binRoot_t* bin, binCache_t* cache, size_t sz) {
 
 	void* chunk;
 	pthread_mutex_lock(&cache->lock);
+	if(!cache->ref_cnt) {
+		printf("WTF\n this is not bound cache\n");
+		exit(-1);
+	}
 	chunk = wtree_reclaim_chunk(&cache->bin_cache, sz, TRUE);
 	if(chunk) {
 		cache->free_sz -= sz;

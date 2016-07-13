@@ -25,7 +25,7 @@ static DECLARE_ONFREE(unmapper);
 #define MALLOC_UNIT_SIZE          (1 << 20)
 #endif
 
-#define TH_CNT                    6
+#define TH_CNT                    32
 
 
 struct segment_node {
