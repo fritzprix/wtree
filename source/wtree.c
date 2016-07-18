@@ -27,6 +27,7 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(for_each_node_destroy);
 
 static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact);
 static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz);
+static BOOL new_cacheNode(wtreeRoot_t* root,size_t sz,BOOL compact);
 static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node);
 static void traverse_base_rc(wtreeNode_t* node, wt_callback_t callback, void* arg);
 static size_t size_rc(wtreeNode_t* node);
@@ -113,19 +114,14 @@ void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
 
 void* wtree_reclaim_chunk(wtreeRoot_t* root, size_t sz,BOOL compact) {
 
-	if (!root || (sz <= 0))	return NULL;
+	if (!root || (sz < sizeof(wtreeNode_t)))	return NULL;
 
 	if (!root->entry)		return NULL;
 
 	wtreeNode_t* largest = root->entry;
 	uint8_t* chunk = (uint8_t*) largest->top;
 	if((largest->size - root->hdr_sz) < sz) {
-		if (root->adapter->onallocate) {
-			size_t seg_sz;
-			wtreeNode_t* nnode = root->adapter->onallocate(sz, &seg_sz,
-					root->ext_ctx);
-			nnode = wtree_baseNodeInit(root, nnode, seg_sz);
-			root->entry = insert_rc(root, root->entry, nnode, FALSE);
+		if(new_cacheNode(root, sz, TRUE)){
 			largest = root->entry;
 			chunk = largest->top;
 		} else return NULL;
@@ -134,10 +130,6 @@ void* wtree_reclaim_chunk(wtreeRoot_t* root, size_t sz,BOOL compact) {
 	largest->size -= sz;
 	root->entry = resolve(root, root->entry, compact);
 	return chunk;
-}
-
-void* wtree_reclaim_aligned_chunk(wtreeRoot_t* root, size_t sz, size_t alignment, BOOL compact) {
-	return NULL;
 }
 
 
@@ -287,6 +279,19 @@ static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode
 	}
 	return parent;
 }
+
+BOOL new_cacheNode(wtreeRoot_t* root,size_t sz, BOOL compact) {
+	if(!root->adapter->onallocate)
+		return FALSE;
+	size_t rsz;
+	wtreeNode_t* node = root->adapter->onallocate(sz, &rsz, root->ext_ctx);
+	if(!node)
+		return FALSE;
+	node = wtree_baseNodeInit(root, node, rsz);
+	wtree_addNode(root, node, compact);
+	return TRUE;
+}
+
 
 
 static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node) {

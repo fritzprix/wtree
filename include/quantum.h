@@ -33,7 +33,7 @@ typedef struct {
 
 extern void quantum_root_init(quantumRoot_t* root,wt_map_func_t mapper, wt_unmap_func_t unmapper);
 extern void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz);
-extern void* quantum_reclain_aligned_chunk(quantumRoot_t* root, size_t alignment, size_t sz);
+extern void* quantum_reclaim_aligned_chunk(quantumRoot_t* root, size_t alignment, size_t sz);
 extern size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk);
 extern int quantum_free_chunk(quantumRoot_t* root,void* chunk);
 extern void quantum_try_purge_cache(quantumRoot_t* root);

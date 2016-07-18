@@ -92,11 +92,12 @@ static DECLARE_WTREE_TRAVERSE_CALLBACK(force_purge_for_each_pool);
 
 static void quantum_init(quantum_t* quantum, uint16_t qsz);
 static void quantum_add(quantumRoot_t* root, quantum_t* quantum);
+static quantum_t* quantum_new(quantumRoot_t* root, size_t quantum_sz);
 
 static void quantum_node_init(quantumNode_t* node, uint16_t qsz,ssize_t hsz, BOOL base);
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode);
 static void* quantum_node_alloc_unit(quantumNode_t* node);
-static void* quantum_node_alloc_aligned_unit(quantumNode_t* node);
+static void* quantum_node_alloc_aligned_unit(quantumNode_t* node,size_t alignment);
 static void quantum_node_free_unit(quantumNode_t* qnode, void* chunk);
 static quantumNode_t* quantum_node_insert_rc(quantumNode_t* parent, quantumNode_t* item);
 static quantumNode_t* quantum_node_rotate_right(quantumNode_t* qnode);
@@ -124,40 +125,46 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 
 void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz) {
 	// calculate quantum size
-	if(!root || !sz)
-		return NULL;
-	if(QUANTUM_MAX < sz)
-		return NULL;
-	uint16_t qsz = QUANTUM_SPACE;
+	if(!root || !sz) return NULL;
+	if(QUANTUM_MAX < sz) return NULL;
+
 	quantumNode_t* qnode;
-	while((sz = sz - QUANTUM_SPACE) > 0) qsz += QUANTUM_SPACE;
+	sz = (sz + QUANTUM_SPACE) & ~(QUANTUM_SPACE - 1);
 	/*
 	 *  direct casting is possible, because rbnode is first element in quantum struct
 	 */
-
-	quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, qsz);
+	quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, sz);
 	if(!quantum) {
-		// there is no quantum for given guantum size
-		quantum = wtree_reclaim_chunk(&root->quantum_pool, sizeof(quantum_t),FALSE);
-		qnode = wtree_reclaim_chunk(&root->quantum_pool, qsz * QMAP_UNIT_OFFSET * QMAP_COUNT, TRUE);
-		quantum_node_init(qnode, qsz, sizeof(quantumNode_t),FALSE);
-		quantum_init(quantum, qsz);
-		quantum_add(root,quantum);
-		quantum_node_add(root, quantum, qnode);
+		quantum = quantum_new(root, sz);
 	}
 
 	qnode = quantum->entry;
 	uint8_t *chnk = NULL;
 	while(!(chnk = quantum_node_alloc_unit(qnode))) {
-		qnode = wtree_reclaim_chunk(&root->quantum_pool, qsz * QMAP_UNIT_OFFSET * QMAP_COUNT, TRUE);
-		quantum_node_init(qnode, qsz, sizeof(quantumNode_t), FALSE);
+		qnode = wtree_reclaim_chunk(&root->quantum_pool, sz * QMAP_UNIT_OFFSET * QMAP_COUNT, TRUE);
+		quantum_node_init(qnode, sz, sizeof(quantumNode_t), FALSE);
 		quantum_node_add(root, quantum, qnode);
 	}
 	return chnk;
 }
 
-void* quantum_reclain_aligned_chunk(quantumRoot_t* root, size_t alignment, size_t sz) {
+void* quantum_reclaim_aligned_chunk(quantumRoot_t* root, size_t alignment, size_t sz) {
+	/**
+	 *  chunk
+	 *  | Q_SIZE | Q_SIZE |
+	 */
+	if(!root || !sz) return NULL;
 
+	if(QUANTUM_MAX < sz) return NULL;
+
+	sz = (sz + QUANTUM_SPACE) & ~(QUANTUM_SPACE - 1);
+	quantumNode_t* qnode;
+	quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, sz);
+	quantum = container_of(quantum, quantum_t,qtree_node);
+	if(!quantum) {
+		quantum = quantum_new(root, sz);
+	}
+	qnode = quantum->entry;
 }
 
 
@@ -347,6 +354,18 @@ static void quantum_add(quantumRoot_t* root, quantum_t* quantum) {
 	cdsl_nrbtreeInsert(&root->quantum_tree, &quantum->qtree_node);
 }
 
+static quantum_t* quantum_new(quantumRoot_t* root, size_t quantum_sz) {
+	if(!root || !quantum_sz) return NULL;
+	quantum_t* quantum = wtree_reclaim_chunk(&root->quantum_pool, sizeof(quantum_t), FALSE);
+	quantumNode_t* qnode = wtree_reclaim_chunk(&root->quantum_pool, quantum_sz * QMAP_UNIT_OFFSET * QMAP_COUNT, TRUE);
+	quantum_node_init(qnode, quantum_sz, sizeof(quantumNode_t), FALSE);
+	quantum_init(quantum, quantum_sz);
+	quantum_add(root,quantum);
+	quantum_node_add(root, quantum, qnode);
+	return quantum;
+}
+
+
 static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNode_t* qnode) {
 	if(!quantum || !qnode || !root)
 		return;
@@ -444,23 +463,15 @@ static void* quantum_node_alloc_unit(quantumNode_t* qnode) {
 	return chnk;
 }
 
-static void* quantum_node_alloc_aligned_unit(quantumNode_t* qnode) {
+static void* quantum_node_alloc_aligned_unit(quantumNode_t* qnode, size_t alignment) {
 	if(!qnode || !qnode->free_cnt) return NULL;
 
 	qmap_t* cmap = qnode->map;
 	uint16_t offset = 0;
 	qmap_t vmap = 0;
 	qmap_t imap = 1;
-	while(!*cmap && (offset < QUANTUM_COUNT_MAX)) {
-		cmap++;
-		offset += QMAP_UNIT_OFFSET;
-	}
-	vmap = *cmap;
-	if(!vmap) {
-		fprintf(stderr, "bitmap is corrupted\n");
-		quantum_node_print(qnode, 0);
-		exit(-1);
-	}
+
+	uint8_t* chunk = (uint8_t*) qnode;
 	return NULL;
 }
 

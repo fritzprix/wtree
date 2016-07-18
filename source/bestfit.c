@@ -76,6 +76,22 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 	return &chunk[sizeof(uint32_t)];
 }
 
+void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
+	if(!root || !sz || !alignment) return NULL;
+	if(sz < sizeof(wtreeNode_t)) sz = sizeof(wtreeNode_t);
+
+	uint8_t* chunk;
+	if(alignment > sz) {
+		chunk = wtree_reclaim_chunk(&root->bfit_cache, alignment << 1, FALSE);
+	} else {
+		chunk = wtree_reclaim_chunk(&root->bfit_cache, sz << 1, FALSE);
+	}
+	size_t aligned = ((size_t) chunk + alignment) & ~(alignment - 1);
+	if(aligned == (size_t) chunk) return chunk;
+
+}
+
+
 
 void* bfit_grows_chunk(bfitRoot_t* root, void* chunk, size_t nsz) {
 

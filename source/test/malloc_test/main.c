@@ -69,7 +69,8 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-
+	perf_test_nmalloc();
+/*
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -94,7 +95,7 @@ int main(void){
 	{
 		perror("fork fail\n");
 		exit(-1);
-	}
+	}*/
 	return 0;
 }
 
