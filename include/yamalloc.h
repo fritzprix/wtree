@@ -22,6 +22,7 @@ extern void yam_free(void* chunk);
 extern void* yam_malloc(size_t sz);
 extern void* yam_realloc(void* chunk, size_t sz);
 extern void* yam_calloc(size_t sz, size_t cnt);
+extern void* yam_memalign(size_t alignment, size_t sz);
 
 #ifdef __YAM_MALLOC
 #define malloc               yam_malloc

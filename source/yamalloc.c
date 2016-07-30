@@ -100,6 +100,15 @@ void* yam_calloc(size_t sz, size_t cnt) {
 	return memset(quantum_reclaim_chunk(&pt_cache.quantum_alloc, tsz),0,tsz);
 }
 
+void* yam_memalign(size_t alignment, size_t sz) {
+	if(!sz || !alignment) return NULL;
+	if(!pt_cache.bestfit_alloc) {
+		yam_bootstrap();
+	}
+	return bfit_reclaim_aligned_chunk(pt_cache.bestfit_alloc, sz, alignment);
+}
+
+
 void yam_free(void* chunk) {
 	if(!chunk) return;
 	if(!pt_cache.bestfit_alloc) {

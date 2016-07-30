@@ -24,7 +24,7 @@ static void* test_bfit(void* );
 #define LOOP_CNT                           40
 #define TEST_CNT                           40000
 #define MAX_REQ_SIZE                       8192
-#define TH_CNT                             16
+#define TH_CNT                             1
 
 
 struct test_report {
@@ -52,6 +52,10 @@ typedef struct  {
 	char          email[20];
 }person_t;
 
+typedef struct {
+	nrbtreeNode_t node;
+}small_person_t;
+
 
 const trkey_t key_bfcache = 1;
 static pthread_t thrs[TH_CNT];
@@ -64,6 +68,9 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
+
+	perf_test_nmalloc();
+/*
 
 	pid_t pid = fork();
 	if(pid > 0) {
@@ -89,7 +96,7 @@ int main(void){
 	{
 		perror("fork fail\n");
 		exit(-1);
-	}
+	}*/
 	return 0;
 }
 
@@ -341,8 +348,23 @@ static void* test_bfit(void* arg) {
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
-	segment_cleanup(&sgroot);
 
+	small_person_t* sp;
+	for(cnt = 1;cnt < TEST_CNT; cnt <<= 1) {
+		sp = (small_person_t*) bfit_reclaim_aligned_chunk(bfroot, sizeof(small_person_t), cnt);
+		if(!sp) {
+			fprintf(stderr, "OOM\n");
+			exit(-1);
+		}
+		cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
+		cdsl_nrbtreeInsert(&root, &sp->node);
+	}
+	while((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
+		sp = container_of(sp, small_person_t, node);
+		bfit_free_chunk(bfroot, sp);
+	}
+
+	segment_cleanup(&sgroot);
 	return NULL;
 }
 
