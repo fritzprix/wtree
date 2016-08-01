@@ -79,7 +79,6 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 	if(!root || !sz || !alignment) return NULL;
 
-	size_t osz = sz;
 	printf("====== aligned chunk request @(%zu / %zu) ======= \n", sz, alignment);
 
 	// set minimum required size for bestfit allocator
@@ -94,45 +93,47 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 
 
 	uint8_t* chunk, *bound;
+	size_t msz;
 	size_t aligned;
 	if(alignment > sz) {
-		sz = alignment << 1;
-		chunk = wtree_reclaim_chunk(&root->bfit_cache, alignment << 1, FALSE);
+		msz = (alignment << 1) + alignment;
+		chunk = wtree_reclaim_chunk(&root->bfit_cache, msz, FALSE);
 	} else {
-		sz <<= 1;
-		chunk = wtree_reclaim_chunk(&root->bfit_cache, sz << 1, FALSE);
+		msz = (sz << 1) + sz;
+		chunk = wtree_reclaim_chunk(&root->bfit_cache, msz, FALSE);
 	}
-	printf("first allocated size : %zu \n", sz);
-	bound = &chunk[sz];
+	printf("first allocated size : %zu \n", msz);
+	bound = &chunk[msz];
 
-	if(alignment < sizeof(wtreeNode_t)) {
-		aligned = ((size_t) chunk + sizeof(wtreeNode_t) + alignment) & ~(alignment);
-	} else {
-		aligned = ((size_t) chunk + alignment) & ~(alignment - 1);
-	}
-
+	aligned = ((size_t) chunk + sizeof(wtreeNode_t) + alignment) & ~(alignment - 1);
 	aligned -= sizeof(uint32_t);
-	if(aligned - (size_t) chunk < sizeof(wtreeNode_t)) {
-		aligned += alignment;
-		if((aligned + osz + sizeof(uint32_t)) > (size_t) bound) {
-			fprintf(stderr, "FUXK \n");
-			exit(-1);
-		}
-	}
-	printf("freed chunk size : %zu\n", aligned - (size_t) chunk);
+
+	printf("freed head chunk size : %zu\n", aligned - (size_t) chunk);
 
 	// free truncated chunk at the bottom
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache,chunk, aligned - (size_t) chunk,NULL);
-	wtree_addNode(&root->bfit_cache, node,FALSE);
+	wtree_addNode(&root->bfit_cache, node, TRUE);
 
-	sz -= (aligned - (size_t) chunk);
-	root->free_sz -= sz;
+	msz -= (aligned - (size_t) chunk);
 
-	printf("actual allocated size : %zu\n", sz);
+	chunk = &((uint8_t*) aligned)[sz];
+	if((size_t) chunk + sizeof(wtreeNode_t) < (size_t) bound) {
+		node = wtree_nodeInit(&root->bfit_cache, chunk, (size_t) (bound - chunk), NULL);
+		wtree_addNode(&root->bfit_cache, node, TRUE);
+		msz -= (size_t) (bound - chunk);
+		printf("freed tail chunk size : %zu\n", (size_t) (bound - chunk));
+	}
+
+	root->free_sz -= msz;
 	chunk = (uint8_t*) aligned;
-	*((uint32_t*) aligned) = sz - sizeof(uint32_t);
-	*((uint32_t*) &chunk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t);
-	if(&chunk[sz - sizeof(uint32_t)] > bound) {
+
+	printf("actual allocated size : %zu\n", msz);
+	if(msz < sz) {
+		exit(-1);
+	}
+	*((uint32_t*) aligned) = msz - sizeof(uint32_t);
+	*((uint32_t*) &chunk[msz - sizeof(uint32_t)]) = msz - sizeof(uint32_t);
+	if(&chunk[msz - sizeof(uint32_t)] > bound) {
 		fprintf(stderr, "OVER BOUND\n");
 		exit(-1);
 	}
