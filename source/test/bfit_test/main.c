@@ -350,18 +350,21 @@ static void* test_bfit(void* arg) {
 	report->realloc_time = dt;
 
 	small_person_t* sp;
-	for(cnt = 1;cnt < TEST_CNT; cnt <<= 1) {
-		sp = (small_person_t*) bfit_reclaim_aligned_chunk(bfroot, sizeof(small_person_t), cnt);
-		if(!sp) {
-			fprintf(stderr, "OOM\n");
-			exit(-1);
+	size_t sz;
+	for (sz = sizeof(small_person_t); sz < (sizeof(small_person_t) << 1) ; sz++) {
+		for (cnt = 2; cnt < TEST_CNT; cnt <<= 1) {
+			sp = (small_person_t*) bfit_reclaim_aligned_chunk(bfroot,sz, cnt);
+			if (!sp) {
+				fprintf(stderr, "OOM\n");
+				exit(-1);
+			}
+			cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
+			cdsl_nrbtreeInsert(&root, &sp->node);
 		}
-		cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
-		cdsl_nrbtreeInsert(&root, &sp->node);
-	}
-	while((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
-		sp = container_of(sp, small_person_t, node);
-		bfit_free_chunk(bfroot, sp);
+		while ((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
+			sp = container_of(sp, small_person_t, node);
+			bfit_free_chunk(bfroot, sp);
+		}
 	}
 
 	segment_cleanup(&sgroot);
