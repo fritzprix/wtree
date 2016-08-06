@@ -26,7 +26,7 @@ static void* test_bfit(void* );
 #define LOOP_CNT                           40
 #define TEST_CNT                           40000
 #define MAX_REQ_SIZE                       8192
-#define TH_CNT                             1
+#define TH_CNT                             10
 
 
 
@@ -48,9 +48,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-
-	perf_test_nmalloc();
-/*
 
 	pid_t pid = fork();
 	if(pid > 0) {
@@ -76,7 +73,7 @@ int main(void){
 	{
 		perror("fork fail\n");
 		exit(-1);
-	}*/
+	}
 	return 0;
 }
 
