@@ -2,6 +2,7 @@
 
 #include "yamalloc.h"
 #include "segment.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,34 +26,6 @@ static void* test_ym(void* );
 #define TEST_CNT                           40000
 #define MAX_REQ_SIZE                       8192
 #define TH_CNT                             8
-
-
-struct test_report {
-	double rand_malloc_only_time;
-	double rand_free_only_time;
-	double repeat_malloc_free_time;
-	double malloc_time;
-	double free_time;
-	double realloc_time;
-	double repeat_deep_malloc_free_time_fixed_mid_size;
-	double repeat_deep_malloc_free_time_fixed_small_size;
-	double repeat_deep_malloc_free_time_rnd_size;
-};
-
-
-typedef struct  {
-	nrbtreeNode_t node;
-	int           age;
-	char          firstname[10];
-	char          lastname[20];
-	char          email[20];
-} large_person_t;
-
-typedef struct {
-	nrbtreeNode_t node;
-	int           age;
-}small_person_t;
-
 
 
 
@@ -241,6 +214,27 @@ static void* malloc_test(void* arg)
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
 
+	size_t sz;
+	clock_gettime(CLOCK_REALTIME, &startts);
+	for (sz = sizeof(small_person_t); sz < (sizeof(small_person_t) << 1);sz++) {
+		for (cnt = 2; cnt < TEST_CNT; cnt <<= 1) {
+			sp = (small_person_t*) yam_memalign(cnt, sz);
+			if (!sp) {
+				fprintf(stderr, "OOM\n");
+				exit(-1);
+			}
+			cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
+			cdsl_nrbtreeInsert(&root, &sp->node);
+		}
+		while ((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
+			sp = container_of(sp, small_person_t, node);
+			yam_free(sp);
+		}
+	}
+	clock_gettime(CLOCK_REALTIME, &endts);
+	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
+	report->memalign_time = dt;
+
 	return (void*) report;
 }
 
@@ -390,38 +384,37 @@ static void* test_ym(void* arg) {
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
 
-	return NULL;
+	size_t sz;
+	clock_gettime(CLOCK_REALTIME,&startts);
+	for (sz = sizeof(small_person_t); sz < (sizeof(small_person_t) << 1) ; sz++) {
+		for (cnt = 2; cnt < TEST_CNT; cnt <<= 1) {
+			sp = (small_person_t*) yam_memalign(cnt, sz);
+			if (!sp) {
+				fprintf(stderr, "OOM\n");
+				exit(-1);
+			}
+			cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
+			cdsl_nrbtreeInsert(&root, &sp->node);
+		}
+		while ((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
+			sp = container_of(sp, small_person_t, node);
+			yam_free(sp);
+		}
+	}
+	clock_gettime(CLOCK_REALTIME,&endts);
+	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
+	report->memalign_time= dt;
+
+	return (void*) report;
 }
 
 
-
-static void print_report(const char* test_name, struct test_report* report)
-{
-	printf("\n==== TEST CONDITION for [%s] ====\n", test_name);
-	printf("LOOP Count : %d\n",LOOP_CNT);
-	printf("TEST SIZE : %d\n", TEST_CNT);
-	printf("REQ Size VARIANCE %d\n", MAX_REQ_SIZE);
-	printf("# of Thread : %d\n",TH_CNT);
-	printf("==== START OF TEST REPORT[%s] ====\n", test_name);
-	printf("total time taken for repeated malloc & free of random size : %f\n",report->repeat_malloc_free_time);
-	printf("total time taken for malloc in above loop %f\n", report->rand_malloc_only_time);
-	printf("total time taken for free in above loop %f\n", report->rand_free_only_time);
-	printf("total time taken for consecutive malloc of fixed size chunk  : %f\n",report->malloc_time);
-	printf("total time taken for consecutive free of fixed size chunk : %f\n", report->free_time);
-	printf("total time taken for looping of each consecutive mallocs & frees of fixed mid-sized chunk : %f\n", report->repeat_deep_malloc_free_time_fixed_mid_size);
-	printf("total time taken for looping of each consecutive mallocs & frees of fixed small-sized chunk : %f\n", report->repeat_deep_malloc_free_time_fixed_small_size);
-	printf("total time taken for looping of each consecutive mallocs & frees of random sized chunk : %f\n", report->repeat_deep_malloc_free_time_rnd_size);
-	printf("total realloc time : %f\n", report->realloc_time);
-	printf("==== END OF TEST REPORT[%s] ====\n\n", test_name);
-
-}
 
 static void perf_test_nmalloc(void)
 {
 	int i,j;
 	struct test_report rpt = {0,};
 	for (j = 0; j < 10; j++) {
-		printf("LOOP : %d\n",j);
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
 		}
@@ -439,9 +432,10 @@ static void perf_test_nmalloc(void)
 			rpt.repeat_deep_malloc_free_time_rnd_size +=
 					reports[i].repeat_deep_malloc_free_time_rnd_size;
 			rpt.realloc_time += reports[i].realloc_time;
+			rpt.memalign_time += reports[i].memalign_time;
 		}
 	}
-	print_report("new malloc",&rpt);
+	print_report("new malloc",&rpt,LOOP_CNT, TEST_CNT, TH_CNT, MAX_REQ_SIZE, 0);
 }
 
 static void perf_test_oldmalloc(void)
@@ -466,7 +460,8 @@ static void perf_test_oldmalloc(void)
 			rpt.repeat_deep_malloc_free_time_rnd_size +=
 					reports[i].repeat_deep_malloc_free_time_rnd_size;
 			rpt.realloc_time += reports[i].realloc_time;
+			rpt.memalign_time += reports[i].memalign_time;
 		}
 	}
-	print_report("old malloc", &rpt);
+	print_report("old malloc", &rpt,LOOP_CNT, TEST_CNT, TH_CNT, MAX_REQ_SIZE, 0);
 }

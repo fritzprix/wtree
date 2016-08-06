@@ -14,5 +14,9 @@
 	"TEST_SUB_CONFIG" : {
 		"type":"config",
 		"path":"./$TEST_TARGET/config.json"
+	},
+	"TEST_RECIPE" : {
+		"type":"recipe",
+		"path":"./recipe.mk"
 	}
 }

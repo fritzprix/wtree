@@ -2,6 +2,7 @@
 
 #include "bestfit.h"
 #include "wtree.h"
+#include "test/common.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -79,7 +80,8 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 	if(!root || !sz || !alignment) return NULL;
 
-	printf("====== aligned chunk request @(%zu / %zu) ======= \n", sz, alignment);
+
+	dbg_print("====== aligned chunk request @(%zu / %zu) ======= \n", sz, alignment);
 
 	// set minimum required size for bestfit allocator
 	if(sz < sizeof(wtreeNode_t)) sz = sizeof(wtreeNode_t);
@@ -102,13 +104,13 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 		msz = (sz << 1) + sz;
 		chunk = wtree_reclaim_chunk(&root->bfit_cache, msz, FALSE);
 	}
-	printf("first allocated size : %zu \n", msz);
+	dbg_print("first allocated size : %zu \n", msz);
 	bound = &chunk[msz];
 
 	aligned = ((size_t) chunk + sizeof(wtreeNode_t) + alignment) & ~(alignment - 1);
 	aligned -= sizeof(uint32_t);
 
-	printf("freed head chunk size : %zu\n", aligned - (size_t) chunk);
+	dbg_print("freed head chunk size : %zu\n", aligned - (size_t) chunk);
 
 	// free truncated chunk at the bottom
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache,chunk, aligned - (size_t) chunk,NULL);
@@ -121,13 +123,13 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 		node = wtree_nodeInit(&root->bfit_cache, chunk, (size_t) (bound - chunk), NULL);
 		wtree_addNode(&root->bfit_cache, node, TRUE);
 		msz -= (size_t) (bound - chunk);
-		printf("freed tail chunk size : %zu\n", (size_t) (bound - chunk));
+		dbg_print("freed tail chunk size : %zu\n", (size_t) (bound - chunk));
 	}
 
 	root->free_sz -= msz;
 	chunk = (uint8_t*) aligned;
 
-	printf("actual allocated size : %zu\n", msz);
+	dbg_print("actual allocated size : %zu\n", msz);
 	if(msz < sz) {
 		exit(-1);
 	}
@@ -137,7 +139,7 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 		fprintf(stderr, "OVER BOUND\n");
 		exit(-1);
 	}
-	printf("====== aligned chunk request @(%lu) ======= \n", (size_t) &chunk[sizeof(uint32_t)]);
+	dbg_print("====== aligned chunk request @(%lu) ======= \n", (size_t) &chunk[sizeof(uint32_t)]);
 	return (void*) &chunk[sizeof(uint32_t)];
 }
 
