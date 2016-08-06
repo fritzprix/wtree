@@ -179,7 +179,7 @@ static DECLARE_TRAVERSE_CALLBACK(segment_for_each_contains) {
 	if((size_t) targ->addr < (size_t) (seg_node->cache_node.top - seg_node->cache_node.base_size))
 		return TRAVERSE_OK;
 	targ->found = TRUE;
-	return TRAVERSE_OK;
+	return TRAVERSE_BREAK;
 }
 
 static DECLARE_ONADDED(segment_internal_onadd) {

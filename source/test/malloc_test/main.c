@@ -15,17 +15,9 @@
 
 static void* test_ym(void* );
 
-#ifndef SEGMENT_UNIT_SIZE
-#define SEGMNET_UNIT_SIZE                (1 << 24)
-#endif
-
-#ifndef BFITCACHE_UNIT_SIZE
-#define BFITCACHE_UNIT_SIZE               (1 << 21)
-#endif
-
 #define LOOP_CNT                           40
 #define TEST_CNT                           40000
-#define REALLOC_MAX_SIZE                   (1 << 22)
+#define REALLOC_MAX_SIZE                   (1 << 20)
 #define MAX_REQ_SIZE                       8192
 #define TH_CNT                             20
 
@@ -42,7 +34,6 @@ static void perf_test_oldmalloc(void);
 
 
 int main(void){
-//	perf_test_nmalloc();
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -412,7 +403,7 @@ static void perf_test_nmalloc(void)
 {
 	int i,j;
 	struct test_report rpt = {0,};
-	for (j = 0; j < 2; j++) {
+	for (j = 0; j < 5; j++) {
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, test_ym, &reports[i]);
 		}
@@ -440,7 +431,7 @@ static void perf_test_oldmalloc(void)
 {
 	int j,i;
 	struct test_report rpt = {0,};
-	for(j = 0;j < 2; j++) {
+	for(j = 0;j < 5; j++) {
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_create(&thrs[i], NULL, malloc_test, &reports[i]);
 		}

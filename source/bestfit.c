@@ -80,7 +80,6 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 	if(!root || !sz || !alignment) return NULL;
 
-
 	dbg_print("====== aligned chunk request @(%zu / %zu) ======= \n", sz, alignment);
 
 	// set minimum required size for bestfit allocator
