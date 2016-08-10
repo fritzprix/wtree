@@ -38,6 +38,7 @@ extern int quantum_free_chunk(quantumRoot_t* root,void* chunk);
 extern void quantum_try_purge_cache(quantumRoot_t* root);
 extern void quantum_cleanup(quantumRoot_t* root);
 extern void quantum_print(quantumRoot_t* root);
+extern size_t quantum_size(quantumRoot_t* root, void* chunk);
 
 
 #ifdef __cplusplus

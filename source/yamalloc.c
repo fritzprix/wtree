@@ -108,6 +108,15 @@ void* yam_memalign(size_t alignment, size_t sz) {
 	return bfit_reclaim_aligned_chunk(pt_cache.bestfit_alloc, sz, alignment);
 }
 
+size_t yam_malloc_size(void* ptr) {
+	if(!ptr) return 0;
+	if(segment_is_from_cache(&pt_cache.segment_cache, SEGMENT_SMALL_KEY, ptr)) {
+		return quantum_get_chunk_size(ptr);
+	}
+	return bfit_chunk_size(pt_cache.bestfit_alloc, ptr);
+}
+
+
 
 void yam_free(void* chunk) {
 	if(!chunk) return;
