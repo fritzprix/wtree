@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <jemalloc/jemalloc.h>
 
 
 static void* test_bfit(void* );

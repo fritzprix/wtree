@@ -172,6 +172,8 @@ static void* malloc_test(void* arg)
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			rn = ((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(nrbtreeNode_t)) & ~3;
 			p = malloc(rn);
+			if(!(malloc_usable_size(p) > 0))
+				exit(-1);
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
@@ -340,6 +342,8 @@ static void* test_ym(void* arg) {
 			if(rn < 0)
 				printf("wtf!\n");
 			lp = yam_malloc(rn);
+			if(!(yam_malloc_size(lp) > 0))
+				exit(-1);
 			cdsl_nrbtreeNodeInit(&lp->node,cnt);
 			cdsl_nrbtreeInsert(&root, &lp->node);
 		}
