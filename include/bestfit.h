@@ -36,6 +36,7 @@ extern void* bfit_grows_chunk(bfitRoot_t* root, void* chunk, size_t nsz);
 extern void bfit_free_chunk(bfitRoot_t* root, void* chunk);
 extern void bfit_purge_cache(bfitRoot_t* root);
 extern void bfit_cleanup(bfitRoot_t* root);
+extern size_t bfit_chunk_size(bfitRoot_t* root, void* chunk);
 
 
 #ifdef __cplusplus

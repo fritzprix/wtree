@@ -14,7 +14,7 @@
 #endif
 
 #ifndef BFIT_CACHE_PURGE_THRESHOLD
-#define BFIT_CACHE_PURGE_THRESHOLD             6
+#define BFIT_CACHE_PURGE_THRESHOLD             8
 #endif
 
 typedef struct {
@@ -205,6 +205,12 @@ void bfit_cleanup(bfitRoot_t* root) {
 	if(!root) return;
 	wtree_cleanup(&root->bfit_cache);
 }
+
+size_t bfit_chunk_size(bfitRoot_t* root, void* chunk) {
+	if(!root) return 0;
+	return (size_t)((uint32_t*) chunk - 1)[0];
+}
+
 
 
 static DECLARE_ONALLOCATE(bfit_internal_mapper) {

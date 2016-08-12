@@ -28,6 +28,8 @@ extern void* yam_memalign(size_t alignment, size_t sz);
 #define malloc               yam_malloc
 #define realloc              yam_realloc
 #define free                 yam_free
+#define calloc               yam_calloc
+#define memalign             yam_memalign
 #endif
 
 
