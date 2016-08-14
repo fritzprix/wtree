@@ -21,6 +21,15 @@ extern "C" {
 #define calloc               yam_calloc
 #define memalign             yam_memalign
 
+extern __attribute__((constructor)) void yam_init();
+extern __attribute__((destructor)) void yam_exit();
+extern void yam_free(void* chunk);
+extern void* yam_malloc(size_t sz);
+extern void* yam_realloc(void* chunk, size_t sz);
+extern void* yam_calloc(size_t sz, size_t cnt);
+extern void* yam_memalign(size_t alignment, size_t sz);
+extern size_t yam_malloc_size(void* ptr);
+
 
 #ifdef __cplusplus
 }
