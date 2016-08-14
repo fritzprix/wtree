@@ -1,2 +1,2 @@
 SRC-y+=./source/test/bin_test
-OBJ-y+= main
+TOBJ-y+= main
