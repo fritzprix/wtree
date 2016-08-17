@@ -24,6 +24,10 @@
 #define YAM_BIN_MAX_SIZE          (1 << 26)
 #endif
 
+#ifndef YAM_MIN_ALLOC_SIZE
+#define YAM_MIN_ALLOC_SIZE        4
+#endif
+
 #define SEGMENT_SMALL_KEY         ((trkey_t) 1)
 #define SEGMENT_LARGE_KEY         ((trkey_t) 2)
 
@@ -59,6 +63,7 @@ void* yam_malloc(size_t sz) {
 	if(!pt_cache.bestfit_alloc) {
 		yam_bootstrap();
 	}
+	if(!sz) sz = YAM_MIN_ALLOC_SIZE;
 	if(QUANTUM_MAX < sz) {
 		return bfit_reclaim_chunk(pt_cache.bestfit_alloc, sz);
 	}
@@ -92,6 +97,7 @@ void* yam_calloc(size_t sz, size_t cnt) {
 	if(!pt_cache.bestfit_alloc) {
 		yam_bootstrap();
 	}
+	if(!sz) sz = YAM_MIN_ALLOC_SIZE;
 	size_t tsz = sz * cnt;
 	void* chunk;
 	if(QUANTUM_MAX < tsz) {
@@ -102,6 +108,7 @@ void* yam_calloc(size_t sz, size_t cnt) {
 
 void* yam_memalign(size_t alignment, size_t sz) {
 	if(!sz || !alignment) return NULL;
+	if(!sz) sz = YAM_MIN_ALLOC_SIZE;
 	if(!pt_cache.bestfit_alloc) {
 		yam_bootstrap();
 	}

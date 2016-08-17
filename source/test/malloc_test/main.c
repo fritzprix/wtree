@@ -6,6 +6,7 @@
 
 #include <jemalloc/jemalloc.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -27,9 +28,14 @@ const trkey_t key_bfcache = 1;
 static pthread_t thrs[TH_CNT];
 static struct test_report reports[TH_CNT];
 
+static nrbtreeRoot_t globalRoot;
+static pthread_mutex_t globalLock;
+
 
 static void perf_test_nmalloc(void);
 static void perf_test_oldmalloc(void);
+
+static int memchck(void*, int v, size_t sz);
 
 
 
@@ -67,6 +73,8 @@ static void* malloc_test(void* arg)
 {
 
 	int cnt;
+	cdsl_nrbtreeRootInit(&globalRoot);
+	pthread_mutex_init(&globalLock,NULL);
 	large_person_t* p = NULL;
 	small_person_t* sp = NULL;
 	struct test_report* report = (struct test_report*) arg;
@@ -97,6 +105,7 @@ static void* malloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = malloc(sizeof(large_person_t));
+		memset(p, 8, sizeof(large_person_t));
 		p->age = cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		cdsl_nrbtreeInsert(&root, &p->node);
@@ -125,6 +134,7 @@ static void* malloc_test(void* arg)
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = malloc(sizeof(large_person_t));
+			memset(p, 8, sizeof(large_person_t));
 			p->age = cnt;
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
@@ -132,6 +142,10 @@ static void* malloc_test(void* arg)
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			if (memchck(p->firstname, 8, sizeof(large_person_t) - offsetof(large_person_t, firstname))) {
+				fprintf(stderr, "chunk corrupted\n");
+				exit(-1);
+			}
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -265,6 +279,7 @@ static void* test_ym(void* arg) {
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		lp = yam_malloc(sizeof(large_person_t));
+		memset(lp, 8, sizeof(large_person_t));
 		lp->age = cnt;
 		cdsl_nrbtreeNodeInit(&lp->node,cnt);
 		cdsl_nrbtreeInsert(&root, &lp->node);
@@ -278,9 +293,14 @@ static void* test_ym(void* arg) {
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		lp = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+		if(memchck(lp->firstname, 8, sizeof(large_person_t) - offsetof(large_person_t, firstname))) {
+			fprintf(stderr, "chunk corrupted\n");
+			exit(-1);
+		}
 		if(!lp)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
+			exit(-1);
 		}
 		yam_free(lp);
 	}
@@ -315,13 +335,17 @@ static void* test_ym(void* arg) {
 	for (loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		for (cnt = 0; cnt < TEST_CNT; cnt++) {
 			sp = yam_malloc(sizeof(small_person_t));
-			sp->age = cnt;
-			cdsl_nrbtreeNodeInit(&sp->node, cnt);
+			sp->age = cnt << 1;
+			cdsl_nrbtreeNodeInit(&sp->node, cnt << 1);
 			cdsl_nrbtreeInsert(&root, &sp->node);
 		}
 
 		for (cnt = 0; cnt < TEST_CNT; cnt++) {
-			sp = (small_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			sp = (small_person_t*) cdsl_nrbtreeDelete(&root, cnt << 1);
+			if(sp->age != (cnt << 1)) {
+				fprintf(stderr, "chunk corrupted\n");
+				exit(-1);
+			}
 			if (!sp) {
 				fprintf(stderr, "abnormal pointer from tree !!\n");
 			}
@@ -457,4 +481,13 @@ static void perf_test_oldmalloc(void)
 		}
 	}
 	print_report("old malloc",&rpt, LOOP_CNT, TEST_CNT, TH_CNT, MAX_REQ_SIZE, REALLOC_MAX_SIZE);
+}
+
+
+static int memchck(void* ptr, int v, size_t sz) {
+	unsigned char* vp = (unsigned char*) ptr;
+	while(sz--) {
+		if(*(vp++) != (unsigned char) v) return -1;
+	}
+	return 0;
 }
