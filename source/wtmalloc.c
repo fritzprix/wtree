@@ -138,7 +138,7 @@ __attribute__((malloc)) void* wt_realloc(void* chnk, size_t sz) {
 	wtree_restorePreserved(&ptcache->root, nchnk, *cur_sz + sizeof(uint32_t), &header_presv);
 	ptcache->free_sz -= (sz - node->size);
 	*((uint32_t*) nchnk) = sz - sizeof(uint32_t);
-	*((uint32_t*) &nchnk[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
+	*((uint32_t*) &((uint8_t*) nchnk)[sz - sizeof(uint32_t)]) = sz - sizeof(uint32_t); // set prev_chunk size at the prev_sz field in next chunk header
 	ptcache->free_cnt = 0;
 	return &((uint32_t*) nchnk)[1];
 }

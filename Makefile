@@ -1,8 +1,10 @@
 # makefile for wtree
 
 
-CC=clang-3.6
-CXX=clang++-3.6
+#CC=clang-3.6
+#CXX=clang++-3.6
+CC=gcc
+CXX=g++
 AR=ar
 PYTHON=python
 PIP=pip

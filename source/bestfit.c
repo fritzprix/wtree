@@ -208,7 +208,7 @@ void bfit_cleanup(bfitRoot_t* root) {
 
 size_t bfit_chunk_size(bfitRoot_t* root, void* chunk) {
 	if(!root) return 0;
-	return (size_t)((uint32_t*) chunk - 1)[0];
+	return  (size_t) ((((uint32_t*) chunk - 1)[0]) - sizeof(uint32_t));
 }
 
 
