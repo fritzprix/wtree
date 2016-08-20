@@ -78,6 +78,7 @@ void* bfit_reclaim_chunk(bfitRoot_t* root, size_t sz) {
 }
 
 void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
+
 	if(!root || !sz || !alignment) return NULL;
 
 	dbg_print("====== aligned chunk request @(%zu / %zu) ======= \n", sz, alignment);
@@ -112,7 +113,7 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 	dbg_print("freed head chunk size : %zu\n", aligned - (size_t) chunk);
 
 	// free truncated chunk at the bottom
-	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache,chunk, aligned - (size_t) chunk,NULL);
+	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, chunk, aligned - (size_t) chunk, NULL);
 	wtree_addNode(&root->bfit_cache, node, TRUE);
 
 	msz -= (aligned - (size_t) chunk);
@@ -208,10 +209,8 @@ void bfit_cleanup(bfitRoot_t* root) {
 
 size_t bfit_chunk_size(bfitRoot_t* root, void* chunk) {
 	if(!root) return 0;
-	return  (size_t) ((((uint32_t*) chunk - 1)[0]) - sizeof(uint32_t));
+	return  (size_t) ((((uint32_t*) chunk - 1)[0]) + sizeof(uint32_t));
 }
-
-
 
 static DECLARE_ONALLOCATE(bfit_internal_mapper) {
 	bfitRoot_t* root = (bfitRoot_t*) ext_ctx;

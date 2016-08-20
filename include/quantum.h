@@ -17,10 +17,17 @@
 extern "C" {
 #endif
 
-
+#ifndef QUANTUM_SPACE
 #define QUANTUM_SPACE           ((uint16_t) 2)
+#endif
+
+#ifndef QUANTUM_MAX
 #define QUANTUM_MAX             ((uint16_t) 32)
+#endif
+
+#ifndef QUANTUM_COUNT_MAX
 #define QUANTUM_COUNT_MAX		((uint16_t) 2048)
+#endif
 
 
 typedef struct {

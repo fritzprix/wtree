@@ -88,16 +88,16 @@ static void* malloc_test(void* arg)
 	nrbtreeRoot_t root;
 	cdsl_nrbtreeRootInit(&root);
 
-	int rn;
+	size_t t_sz;
 	clock_t sub_start,sub_end;
 	struct timespec startts,endts;
 	clock_gettime(CLOCK_REALTIME,&startts);
 	uint32_t seed = (uint32_t) startts.tv_sec;
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		rn = (rand_r(&seed) % (1 << 20)) + 2;
-		p = malloc(rn);
+		t_sz = (size_t) (rand_r(&seed) % (1 << 20)) + 2;
+		p = malloc(t_sz);
 		report->rand_malloc_only_time +=  sub_end - sub_start;
-		p->age = cnt;
+		p->size = cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		free(p);
 		report->rand_free_only_time += sub_end - sub_start;
@@ -112,7 +112,7 @@ static void* malloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = malloc(sizeof(large_person_t));
-		p->age = cnt;
+		p->size = cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		cdsl_nrbtreeInsert(&root, &p->node);
 	}
@@ -140,7 +140,7 @@ static void* malloc_test(void* arg)
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = malloc(sizeof(large_person_t));
-			p->age = cnt;
+			p->size = cnt;
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
@@ -164,8 +164,8 @@ static void* malloc_test(void* arg)
 	seed = (uint32_t) startts.tv_sec;
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = ((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(nrbtreeNode_t)) & ~3;
-			p = malloc(rn);
+			t_sz = (size_t)((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(nrbtreeNode_t)) & ~3;
+			p = malloc(t_sz);
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
@@ -224,7 +224,7 @@ static void* test_bfit(void* arg) {
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		rn = (rand_r(&seed) % (1 << 20)) + 2;
 		p = bfit_reclaim_chunk(bfroot,rn);
-		p->age = cnt;
+		p->size = (size_t) cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		bfit_free_chunk(bfroot, p);
 		report->rand_free_only_time += sub_end - sub_start;
@@ -239,7 +239,7 @@ static void* test_bfit(void* arg) {
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
-		p->age = cnt;
+		p->size = cnt;
 		cdsl_nrbtreeNodeInit(&p->node,cnt);
 		cdsl_nrbtreeInsert(&root, &p->node);
 	}
@@ -267,7 +267,7 @@ static void* test_bfit(void* arg) {
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
-			p->age = cnt;
+			p->size = cnt;
 			cdsl_nrbtreeNodeInit(&p->node,cnt);
 			cdsl_nrbtreeInsert(&root, &p->node);
 		}
@@ -327,11 +327,11 @@ static void* test_bfit(void* arg) {
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
 	report->realloc_time = dt;
 
-	small_person_t* sp;
+	small_chunk_t* sp;
 	size_t sz;
-	for (sz = sizeof(small_person_t); sz < (sizeof(small_person_t) << 1) ; sz++) {
+	for (sz = sizeof(small_chunk_t); sz < (sizeof(small_chunk_t) << 1) ; sz++) {
 		for (cnt = 2; cnt < TEST_CNT; cnt <<= 1) {
-			sp = (small_person_t*) bfit_reclaim_aligned_chunk(bfroot,sz, cnt);
+			sp = (small_chunk_t*) bfit_reclaim_aligned_chunk(bfroot,sz, cnt);
 			if (!sp) {
 				fprintf(stderr, "OOM\n");
 				exit(-1);
@@ -339,8 +339,8 @@ static void* test_bfit(void* arg) {
 			cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
 			cdsl_nrbtreeInsert(&root, &sp->node);
 		}
-		while ((sp = (small_person_t*) cdsl_nrbtreeDeleteMax(&root))) {
-			sp = container_of(sp, small_person_t, node);
+		while ((sp = (small_chunk_t*) cdsl_nrbtreeDeleteMax(&root))) {
+			sp = container_of(sp, small_chunk_t, node);
 			bfit_free_chunk(bfroot, sp);
 		}
 	}

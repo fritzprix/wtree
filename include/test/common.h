@@ -32,19 +32,43 @@ struct test_report {
 	double repeat_deep_malloc_free_time_rnd_size;
 };
 
-
-typedef struct  {
-	nrbtreeNode_t node;
-	int           age;
-	char          firstname[10];
-	char          lastname[20];
-	char          email[20];
-} large_person_t;
-
 typedef struct {
 	nrbtreeNode_t node;
-	int           age;
-}small_person_t;
+	size_t        size;
+}small_chunk_t;
+
+typedef struct  {
+	union {
+		struct {
+			nrbtreeNode_t node;
+			size_t        size;
+		};
+		small_chunk_t    small_chunk;
+	};
+	char          dummy[50];
+} large_person_t;
+
+
+
+// function template for memory allocator functions
+typedef void produce_t(void* pt_ctx, void*, size_t);
+typedef void* consume_t(void* pt_ctx, size_t*);
+typedef BOOL validator_t(void* pt_ctx, void*,size_t);
+
+typedef void* malloc_t(size_t);
+typedef void* realloc_t(void*, size_t);
+typedef void* memalign_t(size_t, size_t);
+typedef void free_t(void*);
+
+extern BOOL perform_consecutive_random_malloc(void* pt_ctx, malloc_t malloc_func, produce_t on_produce, size_t min_size, size_t randomize_factor, long test_count,double* time_taken_sec);
+extern BOOL perform_consecutive_fix_malloc(void* pt_ctx, malloc_t malloc_func, produce_t on_produce, size_t size, long test_count, double* time_taken_sec);
+extern BOOL perform_consecutive_free(void* pt_ctx, free_t free_func, consume_t on_consume,validator_t on_validate,double* time_taken_sec);
+extern BOOL perform_consecutive_malloc_free_pair(void* pt_ctx, malloc_t malloc_func, free_t free_func, size_t size, long test_count, double* time_taken_sec);
+extern BOOL perform_consecutive_free_memalign(void* pt_ctx, free_t free_func, consume_t on_consume,validator_t on_validate,double* time_taken_sec);
+extern BOOL perform_consecutive_random_malloc_free_pair(void* pt_ctx, malloc_t malloc_func, free_t free_func, size_t min_size, size_t randomize_factor, long test_count, double* time_taken_sec);
+extern BOOL perfrom_consecutive_memalign(void* pt_ctx, memalign_t memalign_func, produce_t on_produce, size_t align_min, size_t align_max,size_t size,long test_count, double* time_taken_sec);
+extern BOOL perform_consecutive_memalign_random(void* pt_ctx, memalign_t memalign_func, produce_t on_produce, size_t align_min, size_t align_max,size_t min_size, size_t randomize_factor, long test_count, double* time_taken_sec);
+extern BOOL perform_consecutive_realloc(void* pt_ctx, realloc_t realloc_func, free_t free_func,  size_t start_sz, size_t end_sz , double* time_taken_sec);
 
 extern void print_report(const char* test_name, struct test_report* report, int lcnt, int tcnt, int thread_cnt, size_t mx_req_sz, size_t mx_realloc_sz);
 #ifdef __DBG
