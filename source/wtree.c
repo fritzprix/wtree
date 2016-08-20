@@ -5,12 +5,15 @@
  *      Author: innocentevil
  */
 
-#include "wtree.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "wtree.h"
 #include "cdsl_slist.h"
+#include "test/common.h"
+
 
 typedef struct {
 	slistNode_t    clr_lhead;
@@ -280,7 +283,7 @@ static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode
 	return parent;
 }
 
-BOOL new_cacheNode(wtreeRoot_t* root,size_t sz, BOOL compact) {
+static BOOL new_cacheNode(wtreeRoot_t* root,size_t sz, BOOL compact) {
 	if(!root->adapter->onallocate)
 		return FALSE;
 	size_t rsz;
