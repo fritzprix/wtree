@@ -28,7 +28,7 @@ typedef struct {
 static DECLARE_WTREE_TRAVERSE_CALLBACK(for_each_node_destroy);
 
 
-static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact);
+static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact, int* depth);
 static wtreeNode_t* grows_node(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t** grown, uint32_t nsz);
 static BOOL new_cacheNode(wtreeRoot_t* root,size_t sz,BOOL compact);
 static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node);
@@ -109,9 +109,9 @@ void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg
 	traverse_base_rc(root->entry, callback, arg);
 }
 
-void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact) {
+void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact,int* idepth) {
 	if(!root || !node) return;
-	root->entry = insert_rc(root,root->entry,node,compact);
+	root->entry = insert_rc(root,root->entry,node,compact, idepth);
 }
 
 
@@ -204,20 +204,22 @@ size_t wtree_freeSize(wtreeRoot_t* root) {
 	return fsize_rc(root->entry);
 }
 
-static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact) {
+static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_t* item, BOOL compact, int* depth) {
 	if(!root || !item)
 		return parent;
 	if(!parent) {
 		if(root->adapter->onadded) root->adapter->onadded(item, root->ext_ctx);
 		return item;
 	}
+	if(depth)	(*depth)++;
+
 	if(parent->top < item->top) {
 		if((item->top - item->size) == parent->top) {
 			if(item->base_size) {
 				item->base_size += parent->base_size;
 			}
 			else if(parent->base_size) {
-				parent->right = insert_rc(root, parent->right, item, compact);
+				parent->right = insert_rc(root, parent->right, item, compact,depth);
 				parent = merge_next(root,parent);
 				parent = resolve(root, parent, compact);
 				return parent;
@@ -229,7 +231,7 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 			if(root->adapter->onadded) root->adapter->onadded(item, root->ext_ctx);
 			parent = item;
 		} else {
-			parent->right = insert_rc(root, parent->right, item, compact);
+			parent->right = insert_rc(root, parent->right, item, compact,depth);
 			parent = merge_next(root, parent);
 			parent = resolve(root, parent, compact);
 		}
@@ -240,14 +242,14 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 				parent->base_size += item->base_size;
 			}
 			else if(item->base_size) {
-				parent->left = insert_rc(root, parent->left, item, compact);
+				parent->left = insert_rc(root, parent->left, item, compact,depth);
 				parent = merge_prev(root, parent);
 				parent = resolve(root, parent, compact);
 				return parent;
 			}
 			parent->size += item->size;
 		} else {
-			parent->left = insert_rc(root, parent->left, item, compact);
+			parent->left = insert_rc(root, parent->left, item, compact,depth);
 			parent = merge_prev(root, parent);
 			parent = resolve(root, parent, compact);
 			return parent;
@@ -291,7 +293,9 @@ static BOOL new_cacheNode(wtreeRoot_t* root,size_t sz, BOOL compact) {
 	if(!node)
 		return FALSE;
 	node = wtree_baseNodeInit(root, node, rsz);
-	wtree_addNode(root, node, compact);
+	int depth = 0;
+	wtree_addNode(root, node, compact, &depth);
+
 	return TRUE;
 }
 

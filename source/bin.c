@@ -140,7 +140,7 @@ void bin_root_dispose(binRoot_t* bin, binCache_t* cache, void* addr, size_t sz){
 //		printf("NOW SIZE (%zu / %zu) @ %d\n",cache->free_sz, cache->total_sz, cache->idx);
 	}
 	size_t tsz;
-	wtree_addNode(&cache->bin_cache, cache_chunk, TRUE);
+	wtree_addNode(&cache->bin_cache, cache_chunk, TRUE,NULL);
 	pthread_mutex_unlock(&cache->lock);
 }
 

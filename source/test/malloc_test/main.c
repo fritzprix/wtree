@@ -26,8 +26,8 @@ static void* test_ym(void* );
 #define TEST_CNT                           40000
 #define REALLOC_MAX_SIZE                   (1 << 20)
 #define MAX_REQ_SIZE                       8192
-#define TH_CNT                             5
-
+#define TH_CNT                             10
+#define MEM_ALIGN_TEST_CNT                 1000
 
 
 const trkey_t key_bfcache = 1;
@@ -57,6 +57,7 @@ static int memchck(void*, int v, size_t sz);
 
 
 int main(void){
+
 	pid_t pid = fork();
 	if(pid > 0) {
 		wait(NULL);
@@ -122,12 +123,12 @@ static void* malloc_test(void* arg)
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_realloc(&tctx, realloc, free, sizeof(small_chunk_t), REALLOC_MAX_SIZE, &report->realloc_time);
 	}
-/*
+
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
-		perform_consecutive_memalign_random(&tctx, memalign, on_produce, sizeof(small_chunk_t), TEST_CNT, sizeof(small_chunk_t), MAX_REQ_SIZE, TEST_CNT,&report->memalign_time);
-		perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->memalign_time);
+		perform_consecutive_memalign_random(&tctx, memalign, on_produce, sizeof(small_chunk_t), TEST_CNT, sizeof(small_chunk_t), MAX_REQ_SIZE, MEM_ALIGN_TEST_CNT,&report->memalign_time);
+		perform_consecutive_free_memalign(&tctx, free, on_consume, on_validate, &report->memalign_time);
 	}
-	*/
+
 	return (void*) report;
 }
 
@@ -166,13 +167,12 @@ static void* test_ym(void* arg) {
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_realloc(&tctx, yam_realloc, yam_free, sizeof(small_chunk_t), REALLOC_MAX_SIZE, &report->realloc_time);
 	}
-/*
- *
+
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
-		perform_consecutive_memalign_random(&tctx, yam_memalign, on_produce, sizeof(small_chunk_t), TEST_CNT, sizeof(small_chunk_t), MAX_REQ_SIZE, TEST_CNT,&report->memalign_time);
+		perform_consecutive_memalign_random(&tctx, yam_memalign, on_produce, sizeof(small_chunk_t), TEST_CNT, sizeof(small_chunk_t), MAX_REQ_SIZE, MEM_ALIGN_TEST_CNT,&report->memalign_time);
 		perform_consecutive_free_memalign(&tctx, yam_free, on_consume, on_validate, &report->memalign_time);
 	}
-*/
+
 	return (void*) report;
 }
 

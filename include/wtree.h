@@ -82,7 +82,7 @@ extern wtreeNode_t* wtree_baseNodeInit(wtreeRoot_t* root, uaddr_t addr, uint32_t
 extern void wtree_purge(wtreeRoot_t* root);
 extern void wtree_cleanup(wtreeRoot_t* root);
 extern void wtree_traverseBaseNode(wtreeRoot_t* root, wt_callback_t callback, void* arg);
-extern void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact);
+extern void wtree_addNode(wtreeRoot_t* root, wtreeNode_t* node, BOOL compact,int* idepth);
 extern void* wtree_reclaim_chunk(wtreeRoot_t* root, size_t sz,BOOL compact);
 extern void* wtree_reclaim_chunk_from_node(wtreeNode_t* node, size_t sz);
 extern void* wtree_grow_chunk(wtreeRoot_t* root, wtreeNode_t** node, size_t nsz);

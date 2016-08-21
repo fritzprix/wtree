@@ -47,6 +47,11 @@
 #define DIR_LEFT		1
 #define DIR_RIGHT       2
 
+#ifndef QUANTUM_POOL_PURGE_DEPTH
+#define QUANTUM_POOL_PURGE_DEPTH 10
+#endif
+
+
 typedef struct quantum_node quantumNode_t;
 typedef struct quantum quantum_t;
 
@@ -119,7 +124,7 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	size_t seg_sz;
 	uint8_t* init_seg = mapper(1, &seg_sz,NULL);
 	wtreeNode_t* qpool = wtree_baseNodeInit(&root->quantum_pool, init_seg, seg_sz);
-	wtree_addNode(&root->quantum_pool,qpool,FALSE);
+	wtree_addNode(&root->quantum_pool,qpool,FALSE,NULL);
 }
 
 void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz) {
@@ -163,6 +168,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 		return FALSE;
 	nrbtreeNode_t* cnode = cdsl_nrbtreeTop(&root->addr_rbroot);
 	quantumNode_t* qnode;
+	int depth = 0;
 
 
 	// find original quantum node by looking up address tree (red black tree)
@@ -220,8 +226,10 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				// delete quantum node from address lookup tree
 				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
 				wtreeNode_t* free_q = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode, NULL);
-				wtree_addNode(&root->quantum_pool,free_q,TRUE);
-				return TRUE;
+				wtree_addNode(&root->quantum_pool,free_q,TRUE, &depth);
+			}
+			if(depth > QUANTUM_POOL_PURGE_DEPTH) {
+				wtree_purge(&root->quantum_pool);
 			}
 			return TRUE;
 		}
@@ -244,7 +252,7 @@ void quantum_try_purge_cache(quantumRoot_t* root) {
 			exit(-1);
 		}
 		pnode = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode, NULL);
-		wtree_addNode(&root->quantum_pool, pnode, TRUE);
+		wtree_addNode(&root->quantum_pool, pnode, TRUE, NULL);
 	}
 	wtree_purge(&root->quantum_pool);
 }

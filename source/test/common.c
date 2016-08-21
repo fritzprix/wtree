@@ -119,7 +119,7 @@ BOOL perform_consecutive_free_memalign (
 	clock_gettime(CLOCK_REALTIME,&startts);
 	int cnt = 0;
 	while((ptr = on_consume(pt_ctx, &sz))) {
-		printf("TJAEF %d\n",cnt++);
+//		printf("TJAEF %d\n",cnt++);
 		if(on_validate) {
 			result &= on_validate(pt_ctx, ptr, sz);
 		}
@@ -277,6 +277,7 @@ BOOL perform_consecutive_memalign_random(
 	uint32_t rand_seed = (uint32_t) startts.tv_sec;
 
 	for(count = 0; count < test_count; count++) {
+//		printf("COUNT %d\n", count);
 		for(alignment = align_min; alignment < align_max ; alignment <<= 1) {
 			size = (rand_r(&rand_seed) % randomize_factor) + min_size;
 			ptr = memalign_func(alignment, size);
