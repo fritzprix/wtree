@@ -17,6 +17,10 @@
 #define BFIT_CACHE_PURGE_THRESHOLD             8
 #endif
 
+#ifndef BFIT_PURGE_DEPTH_THRESHOLD
+#define BFIT_PURGE_DEPTH_THRESHOLD             28
+#endif
+
 typedef struct {
 	uint32_t     prev_sz;
 	uint32_t     cur_sz;
@@ -53,7 +57,7 @@ bfitRoot_t* bfit_root_create(void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_
 	root->free_sz = root->total_sz = rsz;
 	root->free_sz -= sizeof(bfitRoot_t);
 	wtree_rootInit(&root->bfit_cache, root, &cache_adapter, 0);
-	wtree_addNode(&root->bfit_cache, node,TRUE);
+	wtree_addNode(&root->bfit_cache, node,TRUE, NULL);
 	return root;
 }
 
@@ -113,32 +117,32 @@ void* bfit_reclaim_aligned_chunk(bfitRoot_t* root,size_t sz, size_t alignment) {
 	dbg_print("freed head chunk size : %zu\n", aligned - (size_t) chunk);
 
 	// free truncated chunk at the bottom
+	int max_depth,depth = 0;
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, chunk, aligned - (size_t) chunk, NULL);
-	wtree_addNode(&root->bfit_cache, node, TRUE);
+	wtree_addNode(&root->bfit_cache, node, TRUE, &depth);
+	max_depth = depth;
 
 	msz -= (aligned - (size_t) chunk);
 
 	chunk = &((uint8_t*) aligned)[sz];
 	if((size_t) chunk + sizeof(wtreeNode_t) < (size_t) bound) {
 		node = wtree_nodeInit(&root->bfit_cache, chunk, (size_t) (bound - chunk), NULL);
-		wtree_addNode(&root->bfit_cache, node, TRUE);
+		depth = 0;
+		wtree_addNode(&root->bfit_cache, node, TRUE, &depth);
 		msz -= (size_t) (bound - chunk);
 		dbg_print("freed tail chunk size : %zu\n", (size_t) (bound - chunk));
 	}
+	if(max_depth < depth) max_depth = depth;
 
 	root->free_sz -= msz;
 	chunk = (uint8_t*) aligned;
+	if(max_depth > BFIT_PURGE_DEPTH_THRESHOLD) {
+		wtree_purge(&root->bfit_cache);
+	}
 
 	dbg_print("actual allocated size : %zu\n", msz);
-	if(msz < sz) {
-		exit(-1);
-	}
 	*((uint32_t*) aligned) = msz - sizeof(uint32_t);
 	*((uint32_t*) &chunk[msz - sizeof(uint32_t)]) = msz - sizeof(uint32_t);
-	if(&chunk[msz - sizeof(uint32_t)] > bound) {
-		fprintf(stderr, "OVER BOUND\n");
-		exit(-1);
-	}
 	dbg_print("====== aligned chunk request @(%lu) ======= \n", (size_t) &chunk[sizeof(uint32_t)]);
 	return (void*) &chunk[sizeof(uint32_t)];
 }
@@ -182,6 +186,7 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 	if(!root || !chunk) return;
 
 	uint32_t *cur_sz, *sz_chk;
+	int depth = 0;
 	cur_sz = ((uint32_t*) chunk - 1);
 	sz_chk = (uint32_t*) &(((uint8_t*) cur_sz)[*cur_sz]);
 	if(*cur_sz != *sz_chk) {
@@ -191,10 +196,18 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 
 	root->free_sz += *cur_sz + sizeof(uint32_t);
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, cur_sz, *cur_sz + sizeof(uint32_t), NULL);
-	wtree_addNode(&root->bfit_cache, node, TRUE);
+	wtree_addNode(&root->bfit_cache, node, TRUE,&depth);
+//	/*
+	if(depth > BFIT_PURGE_DEPTH_THRESHOLD) {
+		wtree_purge(&root->bfit_cache);
+	}
+//	*/
+	/*
 	if(root->free_sz > (((root->total_sz << BFIT_CACHE_PURGE_THRESHOLD) - root->total_sz) >> BFIT_CACHE_PURGE_THRESHOLD)) {
 		wtree_purge(&root->bfit_cache);
 	}
+	*/
+
 }
 
 void bfit_purge_cache(bfitRoot_t* root) {

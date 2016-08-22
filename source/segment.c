@@ -15,6 +15,9 @@
 #define SEGMENT_MIN_SIZE                ((size_t) 1 << 24)
 #endif
 
+#ifndef SEGMENT_PURGE_DEPTH_THRESHOLD
+#define SEGMENT_PURGE_DEPTH_THRESHOLD   16
+#endif
 
 typedef struct {
 	wtreeNode_t    cache_node;
@@ -76,7 +79,7 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	segment_cache->free_sz -= sizeof(segmentCache_t);
 	segment_cache->root = root;
 	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
-	wtree_addNode(&segment_cache->seg_pool, node, TRUE);
+	wtree_addNode(&segment_cache->seg_pool, node, TRUE,NULL);
 	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode);
 }
 
@@ -123,8 +126,12 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 	cache = container_of(cache, segmentCache_t, rbnode);
 	segment_t* segment = (segment_t*) wtree_nodeInit(&cache->seg_pool, addr, sz, NULL);
 	segment = container_of(segment, segment_t, cache_node);
-	wtree_addNode(&cache->seg_pool, &segment->cache_node, TRUE);
+	int depth = 0;
+	wtree_addNode(&cache->seg_pool, &segment->cache_node, TRUE,&depth);
 	cache->free_sz += sz;
+	if(depth > SEGMENT_PURGE_DEPTH_THRESHOLD) {
+		wtree_purge(&cache->seg_pool);
+	}
 }
 
 void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
