@@ -154,9 +154,9 @@ __attribute__((destructor)) void yam_exit() {
 static void yam_bootstrap(void) {
 	pthread_t self = pthread_self();
 	// init ptcache in stack variable and assign it to thread local storage variable for bootstrapping
-//	pt_cache.bin_cache = bin_cache_bind(&bin_root, self);
+	pt_cache.bin_cache = bin_cache_bind(&bin_root, self);
 
-	segment_root_init(&pt_cache.segment_cache, &pt_cache,segment_mapper, segment_unmapper);
+	segment_root_init(&pt_cache.segment_cache, &pt_cache, segment_mapper, segment_unmapper);
 	segment_create_cache(&pt_cache.segment_cache, SEGMENT_SMALL_KEY);
 	segment_create_cache(&pt_cache.segment_cache, SEGMENT_LARGE_KEY);
 
@@ -170,7 +170,7 @@ static void yam_bootstrap(void) {
 static void yam_destroy(void* chunk) {
 	binCache_t* bin_cache = pt_cache.bin_cache;
 	segment_cleanup(&pt_cache.segment_cache);
-//	bin_cache_unbind(&bin_root, bin_cache);
+	bin_cache_unbind(&bin_root, bin_cache);
 }
 
 
@@ -185,19 +185,19 @@ static DECLARE_ONALLOCATE(segment_mapper) {
 	while(seg_sz < total_sz) seg_sz <<= 1;
 	*rsz = seg_sz;
 
-//	void* chunk = bin_root_recycle(&bin_root, pt_cache.bin_cache, total_sz);
-//	if(chunk){
-//		return chunk;
-//	}
+	void* chunk = bin_root_recycle(&bin_root, pt_cache.bin_cache, total_sz);
+	if(chunk){
+		return chunk;
+	}
 
 	return mmap(NULL, seg_sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NONBLOCK, -1, 0);
 }
 
 static DECLARE_ONFREE(segment_unmapper) {
 	if(!addr) return -1;
-//	bin_root_dispose(&bin_root, pt_cache.bin_cache, addr, sz);
-//	return 0;
-	return munmap(addr, sz);
+	bin_root_dispose(&bin_root, pt_cache.bin_cache, addr, sz);
+	return 0;
+//	return munmap(addr, sz);
 }
 
 static DECLARE_ONALLOCATE(quantum_mapper) {
