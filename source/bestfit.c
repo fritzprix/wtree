@@ -197,16 +197,11 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 	root->free_sz += *cur_sz + sizeof(uint32_t);
 	wtreeNode_t* node = wtree_nodeInit(&root->bfit_cache, cur_sz, *cur_sz + sizeof(uint32_t), NULL);
 	wtree_addNode(&root->bfit_cache, node, TRUE,&depth);
-//	/*
-	if(depth > BFIT_PURGE_DEPTH_THRESHOLD) {
+
+	if((root->free_sz > (((root->total_sz << BFIT_CACHE_PURGE_THRESHOLD) - root->total_sz) >> BFIT_CACHE_PURGE_THRESHOLD)) ||
+			(depth > BFIT_PURGE_DEPTH_THRESHOLD)) {
 		wtree_purge(&root->bfit_cache);
 	}
-//	*/
-	/*
-	if(root->free_sz > (((root->total_sz << BFIT_CACHE_PURGE_THRESHOLD) - root->total_sz) >> BFIT_CACHE_PURGE_THRESHOLD)) {
-		wtree_purge(&root->bfit_cache);
-	}
-	*/
 
 }
 

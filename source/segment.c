@@ -19,6 +19,16 @@
 #define SEGMENT_PURGE_DEPTH_THRESHOLD   16
 #endif
 
+#ifndef SEGMENT_PURGE_SIZE_THRESHOLD
+#define SEGMENT_PURGE_SIZE_THRESHOLD    8
+#endif
+
+
+typedef struct {
+	nrbtreeRoot_t   lookup_rtree;
+	pthread_mutex_t lock;
+} segmentLookup_t;
+
 typedef struct {
 	wtreeNode_t    cache_node;
 	nrbtreeNode_t  addr_node;
@@ -78,6 +88,8 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	segment_cache->free_sz = segment_cache->total_sz = rsz;
 	segment_cache->free_sz -= sizeof(segmentCache_t);
 	segment_cache->root = root;
+	segment_cache->ext_ctx = root->ext_ctx;
+
 	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
 	wtree_addNode(&segment_cache->seg_pool, node, TRUE,NULL);
 	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode);
@@ -129,7 +141,8 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 	int depth = 0;
 	wtree_addNode(&cache->seg_pool, &segment->cache_node, TRUE,&depth);
 	cache->free_sz += sz;
-	if(depth > SEGMENT_PURGE_DEPTH_THRESHOLD) {
+	if((depth > SEGMENT_PURGE_DEPTH_THRESHOLD) ||
+			(cache->free_sz > (((cache->total_sz << SEGMENT_PURGE_SIZE_THRESHOLD) - cache->total_sz) >> SEGMENT_PURGE_SIZE_THRESHOLD))) {
 		wtree_purge(&cache->seg_pool);
 	}
 }

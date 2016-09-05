@@ -47,8 +47,8 @@
 #define DIR_LEFT		1
 #define DIR_RIGHT       2
 
-#ifndef QUANTUM_POOL_PURGE_DEPTH
-#define QUANTUM_POOL_PURGE_DEPTH 10
+#ifndef QUANTUM_POOL_PURGE_DEPTH_THRESHOLD
+#define QUANTUM_POOL_PURGE_DEPTH_THRESHOLD 16
 #endif
 
 
@@ -228,7 +228,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				wtreeNode_t* free_q = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode, NULL);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE, &depth);
 			}
-			if(depth > QUANTUM_POOL_PURGE_DEPTH) {
+			if(depth > QUANTUM_POOL_PURGE_DEPTH_THRESHOLD) {
 				wtree_purge(&root->quantum_pool);
 			}
 			return TRUE;

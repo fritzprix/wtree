@@ -34,9 +34,10 @@ typedef struct {
 	size_t            free_sz;        // free size in bytes
 	segmentRoot_t*    root;           // reference to parent segroot
 	void*             bootstrap_seg;  // reference to segment which contains this cache header
+	void*             ext_ctx;
 } segmentCache_t;
 
-extern void segment_root_init(segmentRoot_t* root,void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);
+extern void segment_root_init(segmentRoot_t* root, void* ext_ctx, wt_map_func_t mapper, wt_unmap_func_t unmapper);
 extern void segment_create_cache(segmentRoot_t* root, trkey_t cache_id);
 extern BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr);
 extern void* segment_map(segmentRoot_t* root, trkey_t cache_id, size_t sz);
