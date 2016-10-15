@@ -1,12 +1,13 @@
 
 
 #include "bestfit.h"
-#include "wtree.h"
 #include "test/common.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "../wt.h"
 
 
 #ifndef BFIT_ALIGNMENT

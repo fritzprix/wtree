@@ -92,7 +92,7 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 
 	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
 	wtree_addNode(&segment_cache->seg_pool, node, TRUE,NULL);
-	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode);
+	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode, FALSE);
 }
 
 BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr) {
@@ -209,7 +209,7 @@ static DECLARE_ONADDED(segment_internal_onadd) {
 	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
 	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) segment->cache_node.top - segment->cache_node.base_size);
 	if(segment->cache_node.base_size) {
-		cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node);
+		cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node, FALSE);
 	}
 }
 
