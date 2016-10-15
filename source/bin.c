@@ -206,7 +206,7 @@ static DECLARE_ONADDED(bin_internal_on_node_added) {
 	cdsl_nrbtreeNodeInit(&cache_node->addr_node, (trkey_t) node->top - node->base_size);
 
 	if(node->base_size) {
-		cdsl_nrbtreeInsert(&cache->addr_root, &cache_node->addr_node);
+		cdsl_nrbtreeInsert(&cache->addr_root, &cache_node->addr_node, FALSE);
 	}
 }
 static DECLARE_ONREMOVED(bin_internal_on_node_removoed) {

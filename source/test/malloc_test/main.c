@@ -104,7 +104,6 @@ static void* malloc_test(void* arg)
 	perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->free_time);
 	assert(cdsl_nrbtreeIsEmpty(&tctx.root));
 
-
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_fix_malloc(&tctx, malloc, on_produce, sizeof(large_person_t), TEST_CNT, &report->repeat_deep_malloc_free_time_fixed_mid_size);
 		perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->repeat_deep_malloc_free_time_fixed_mid_size);
@@ -114,7 +113,6 @@ static void* malloc_test(void* arg)
 		perform_consecutive_fix_malloc(&tctx, malloc, on_produce, sizeof(small_chunk_t), TEST_CNT, &report->repeat_deep_malloc_free_time_fixed_small_size);
 		perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->repeat_deep_malloc_free_time_fixed_small_size);
 	}
-
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_random_malloc(&tctx, malloc, on_produce, sizeof(small_chunk_t), MAX_REQ_SIZE, TEST_CNT, &time_taken_sec);
 		perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->repeat_deep_malloc_free_time_rnd_size);
@@ -167,6 +165,7 @@ static void* test_ym(void* arg) {
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_realloc(&tctx, yam_realloc, yam_free, sizeof(small_chunk_t), REALLOC_MAX_SIZE, &report->realloc_time);
 	}
+
 /*
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_memalign_random(&tctx, yam_memalign, on_produce, sizeof(small_chunk_t), TEST_CNT, sizeof(small_chunk_t), MAX_REQ_SIZE, MEM_ALIGN_TEST_CNT,&report->memalign_time);
@@ -237,20 +236,12 @@ static void perf_test_oldmalloc(void)
 }
 
 
-static int memchck(void* ptr, int v, size_t sz) {
-	unsigned char* vp = (unsigned char*) ptr;
-	while(sz--) {
-		if(*(vp++) != (unsigned char) v) return -1;
-	}
-	return 0;
-}
-
 
 static void on_produce(void* test_ctx, void* ptr, size_t sz) {
 	struct test_context* tctx = (struct test_context*) test_ctx;
 	small_chunk_t* sp = (small_chunk_t*) ptr;
 	cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) ptr);
-	cdsl_nrbtreeInsert(&tctx->root, &sp->node);
+	cdsl_nrbtreeInsert(&tctx->root, &sp->node, FALSE);
 	sp->size = sz;
 }
 

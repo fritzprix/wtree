@@ -11,6 +11,8 @@
 #include <string.h>
 
 #include "wtree.h"
+
+#include "../wt.h"
 #include "cdsl_slist.h"
 #include "test/common.h"
 
@@ -48,7 +50,10 @@ static void print_rc(wtreeNode_t* parent, int depth);
 static void print_tab(int times);
 
 void wtree_rootInit(wtreeRoot_t* root, void* ext_ctx, const wt_adapter* adapter, size_t cust_hdr_sz) {
-	if(!root || !adapter || !adapter->onfree) return;
+	if(!root || !adapter) {
+		return;
+	}
+
 	root->entry = NULL;
 	root->total_sz = root->used_sz = 0;
 	root->adapter = adapter;
@@ -211,7 +216,9 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 		if(root->adapter->onadded) root->adapter->onadded(item, root->ext_ctx);
 		return item;
 	}
-	if(depth)	(*depth)++;
+	if(depth) {
+		(*depth)++;
+	}
 
 	if(parent->top < item->top) {
 		if((item->top - item->size) == parent->top) {
@@ -535,7 +542,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 
 static DECLARE_WTREE_TRAVERSE_CALLBACK(for_each_node_destroy) {
 	slistEntry_t* clr_list = (slistEntry_t*) arg;
-	clr_node_t* clr_node = container_of(node, clr_node_t, node);
+	clr_node_t* clr_node = container_of(clr_node, clr_node_t, node);
 	cdsl_slistNodeInit(&clr_node->clr_lhead);
 	cdsl_slistPutHead(clr_list, &clr_node->clr_lhead);
 	return TRUE;

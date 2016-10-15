@@ -7,12 +7,12 @@
 
 #include "quantum.h"
 #include "cdsl_nrbtree.h"
-#include "wtree.h"
-
 #include <unistd.h>
 #include <sys/mman.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "../wt.h"
 
 /**
  *  QUANTUM Size (bytes)
@@ -339,7 +339,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz, ssize_t hsz, BO
 static void quantum_add(quantumRoot_t* root, quantum_t* quantum) {
 	if(!root || !quantum)
 		return;
-	cdsl_nrbtreeInsert(&root->quantum_tree, &quantum->qtree_node);
+	cdsl_nrbtreeInsert(&root->quantum_tree, &quantum->qtree_node, FALSE);
 }
 
 static quantum_t* quantum_new(quantumRoot_t* root, size_t quantum_sz) {
@@ -359,7 +359,7 @@ static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNod
 		return;
 	quantum->entry = quantum_node_insert_rc(quantum->entry, qnode);
 	quantum->entry->parent = NULL;
-	cdsl_nrbtreeInsert(&root->addr_rbroot, &qnode->addr_rbnode);
+	cdsl_nrbtreeInsert(&root->addr_rbroot, &qnode->addr_rbnode, FALSE);
 }
 
 static quantumNode_t* quantum_node_insert_rc(quantumNode_t* parent, quantumNode_t* item) {

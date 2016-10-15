@@ -1,12 +1,13 @@
 
 
 #include "bestfit.h"
-#include "wtree.h"
 #include "test/common.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "../wt.h"
 
 
 #ifndef BFIT_ALIGNMENT
@@ -202,7 +203,6 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 			(depth > BFIT_PURGE_DEPTH_THRESHOLD)) {
 		wtree_purge(&root->bfit_cache);
 	}
-
 }
 
 void bfit_purge_cache(bfitRoot_t* root) {

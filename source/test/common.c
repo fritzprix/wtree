@@ -60,7 +60,9 @@ BOOL perform_consecutive_random_malloc (
 	rand_seed = (uint32_t) startts.tv_sec;
 	for(count = 0; count < test_count; count++) {
 		randomized_size = randomize_factor? (rand_r(&rand_seed) % randomize_factor) : 0;
-		if(randomized_size < min_size) randomized_size = min_size;
+		if(randomized_size < min_size) {
+			randomized_size = min_size;
+		}
 		ptr = malloc_func(randomized_size);
 		if(!ptr) {
 			return FALSE;
@@ -119,7 +121,6 @@ BOOL perform_consecutive_free_memalign (
 	clock_gettime(CLOCK_REALTIME,&startts);
 	int cnt = 0;
 	while((ptr = on_consume(pt_ctx, &sz))) {
-//		printf("TJAEF %d\n",cnt++);
 		if(on_validate) {
 			result &= on_validate(pt_ctx, ptr, sz);
 		}
