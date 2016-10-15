@@ -119,7 +119,6 @@ BOOL perform_consecutive_free_memalign (
 	clock_gettime(CLOCK_REALTIME,&startts);
 	int cnt = 0;
 	while((ptr = on_consume(pt_ctx, &sz))) {
-//		printf("TJAEF %d\n",cnt++);
 		if(on_validate) {
 			result &= on_validate(pt_ctx, ptr, sz);
 		}

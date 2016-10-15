@@ -202,7 +202,6 @@ void bfit_free_chunk(bfitRoot_t* root, void* chunk) {
 			(depth > BFIT_PURGE_DEPTH_THRESHOLD)) {
 		wtree_purge(&root->bfit_cache);
 	}
-
 }
 
 void bfit_purge_cache(bfitRoot_t* root) {
