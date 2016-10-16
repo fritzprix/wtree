@@ -103,7 +103,12 @@ void wtree_cleanup(wtreeRoot_t* root) {
 	wtree_traverseBaseNode(root, for_each_node_destroy, &clr_list);
 	while((clrn = (clr_node_t*)cdsl_slistRemoveHead(&clr_list))) {
 		clrn = container_of(clrn, clr_node_t, clr_lhead);
-		root->adapter->onfree(clrn->node.top - clrn->node.base_size,  clrn->node.base_size, &clrn->node, root->ext_ctx);
+		if(root->adapter->onremoved) {
+			root->adapter->onremoved(&clrn->node, root->ext_ctx);
+		}
+		if(root->adapter->onfree) {
+			root->adapter->onfree(clrn->node.top - clrn->node.base_size,  clrn->node.base_size, &clrn->node, root->ext_ctx);
+		}
 	}
 	root->entry = NULL;
 	root->total_sz = root->used_sz = 0;
