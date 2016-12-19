@@ -23,7 +23,7 @@ static DECLARE_ONFREE(unmap_segment);
 static void* test_runner(void* arg);
 static uint16_t* mem[100000];
 
-int main() {
+int perform_benchmark(void) {
 	int tloop_cnt = 100;
 	pthread_t pid;
 	while(tloop_cnt--) {

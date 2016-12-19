@@ -36,7 +36,7 @@ struct segment_node {
 static void* segment_test(void* arg);
 
 
-int main(void) {
+int perform_benchmark(void) {
 	pthread_t pids[TH_CNT];
 	pthread_t thread;
 	int j,i = 0;

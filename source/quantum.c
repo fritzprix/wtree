@@ -42,11 +42,6 @@
  */
 
 #define QMAP_COUNT		32
-#define SEGMENT_SIZE 	(1 << 20)
-
-#define DIR_LEFT		1
-#define DIR_RIGHT       2
-
 #ifndef QUANTUM_POOL_PURGE_DEPTH_THRESHOLD
 #define QUANTUM_POOL_PURGE_DEPTH_THRESHOLD 16
 #endif
@@ -122,7 +117,7 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;
-	uint8_t* init_seg = mapper(1, &seg_sz,NULL);
+	uint8_t* init_seg = mapper(1, &seg_sz, NULL);
 	wtreeNode_t* qpool = wtree_baseNodeInit(&root->quantum_pool, init_seg, seg_sz);
 	wtree_addNode(&root->quantum_pool,qpool,FALSE,NULL);
 }

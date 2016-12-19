@@ -29,6 +29,8 @@ extern "C" {
 #define BS_STOP             ((int) 0x01)
 #define BS_REMOVE_THIS      ((int) 0x02)
 
+#define DECLARE_BSCALLBACK(fn)  int fn (bsNode* node)
+
 
 typedef struct bs_node bsNode;
 typedef struct bs_root bsRoot;
@@ -69,6 +71,7 @@ extern void bs_insert(bsRoot* root, bsNode* node, bs_traverse_callback callback)
 extern void bs_traverse(bsRoot* root, bsNode* target, bs_traverse_callback callback);
 extern int bs_lookup(bsRoot* root, bsNode* node);
 extern void bs_remove(bsRoot* root, bsNode* node);
+extern size_t bs_size(bsRoot* root);
 
 
 #ifdef __cplusplus

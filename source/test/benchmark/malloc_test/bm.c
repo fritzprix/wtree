@@ -52,11 +52,10 @@ struct test_context {
 static void perf_test_nmalloc(void);
 static void perf_test_oldmalloc(void);
 
-static int memchck(void*, int v, size_t sz);
 
 
 
-int main(void){
+int perform_benchmark(void) {
 
 	pid_t pid = fork();
 	if(pid > 0) {

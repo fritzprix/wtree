@@ -60,6 +60,8 @@ typedef void* realloc_t(void*, size_t);
 typedef void* memalign_t(size_t, size_t);
 typedef void free_t(void*);
 
+extern int perform_benchmark(void);
+
 extern BOOL perform_consecutive_random_malloc(void* pt_ctx, malloc_t malloc_func, produce_t on_produce, size_t min_size, size_t randomize_factor, long test_count,double* time_taken_sec);
 extern BOOL perform_consecutive_fix_malloc(void* pt_ctx, malloc_t malloc_func, produce_t on_produce, size_t size, long test_count, double* time_taken_sec);
 extern BOOL perform_consecutive_free(void* pt_ctx, free_t free_func, consume_t on_consume,validator_t on_validate,double* time_taken_sec);
@@ -71,6 +73,7 @@ extern BOOL perform_consecutive_memalign_random(void* pt_ctx, memalign_t memalig
 extern BOOL perform_consecutive_realloc(void* pt_ctx, realloc_t realloc_func, free_t free_func,  size_t start_sz, size_t end_sz , double* time_taken_sec);
 
 extern void print_report(const char* test_name, struct test_report* report, int lcnt, int tcnt, int thread_cnt, size_t mx_req_sz, size_t mx_realloc_sz);
+
 #ifdef __DBG
 #define dbg_print(...)      printf( __VA_ARGS__)
 #else

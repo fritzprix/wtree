@@ -14,6 +14,7 @@
 
 static bsNode* bs_insert_rc(bsNode* parent, bsNode* node, bs_traverse_callback callback);
 static bsNode* bs_traverse_rc(bsNode* parent, bsNode* node, bs_traverse_callback callback);
+static size_t bs_size_rc(bsNode* parent);
 static bsNode* bs_remove_rc(bsNode* parent, bsNode* node);
 static bsNode* bs_popup_leaf_rc(bsNode* parent, int direction);
 
@@ -53,6 +54,14 @@ void bs_remove(bsRoot* root, bsNode* node) {
 	root->entry = bs_remove_rc(root->entry, node);
 }
 
+size_t bs_size(bsRoot* root) {
+	if(!root) {
+		return 0;
+	}
+	return bs_size_rc(root->entry);
+}
+
+
 static bsNode* bs_traverse_rc(bsNode* parent, bsNode* target, bs_traverse_callback callback) {
 	if(!parent) {
 		// Null target is intentionally allowed to traverse to minimum node of the tree
@@ -89,7 +98,41 @@ static bsNode* bs_traverse_rc(bsNode* parent, bsNode* target, bs_traverse_callba
 	return parent;
 }
 
+static size_t bs_size_rc(bsNode* parent) {
+	if(!parent) {
+		return 0;
+	}
+	return bs_size_rc(parent->left)
+			+ bs_size_rc(parent->right);
+}
+
+
 static bsNode* bs_remove_rc(bsNode* parent, bsNode* node) {
+	if(!parent || !node) {
+		return NULL;
+	}
+	if((size_t) parent > (size_t) node) {
+		parent->left = bs_remove_rc(parent->left, node);
+		return parent;
+	} else if((size_t) parent < (size_t ) node) {
+		parent->right = bs_remove_rc(parent->right, node);
+		return parent;
+	}
+	bsNode* alt = NULL;
+	if (node->left) {
+		alt = bs_popup_leaf_rc(parent->left, DIRECTION_RIGHT);
+		if (alt != parent->left) {
+			alt->left = parent->left;
+		}
+		alt->right = parent->right;
+	} else if (node->right) {
+		alt = bs_popup_leaf_rc(parent->right, DIRECTION_LEFT);
+		if (alt != parent->right) {
+			alt->right = parent->right;
+		}
+		alt->left = parent->left;
+	}
+	return alt;
 
 }
 

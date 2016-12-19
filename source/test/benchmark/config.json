@@ -1,5 +1,5 @@
 {
-	"TEST_TARGET" : {
+	"BM_TARGET" : {
 		"type":"enum",
 		"enum": [
 			"wt_test",
@@ -11,11 +11,11 @@
 		],
 		"default": 1
 	},
-	"TEST_SUB_CONFIG" : {
+	"BM_SUB_CONFIG" : {
 		"type":"config",
-		"path":"./$TEST_TARGET/config.json"
+		"path":"./$BM_TARGET/config.json"
 	},
-	"TEST_RECIPE" : {
+	"BM_RECIPE" : {
 		"type":"recipe",
 		"path":"./recipe.mk"
 	}
