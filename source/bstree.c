@@ -67,9 +67,9 @@ static bsNode* bs_traverse_rc(bsNode* parent, bsNode* target, bs_traverse_callba
 		// Null target is intentionally allowed to traverse to minimum node of the tree
 		return NULL;
 	}
+	bsNode* alt = NULL;
 	switch(callback(parent)) {
 	case BS_REMOVE_THIS:
-		bsNode* alt = NULL;
 		if(parent->left) {
 			alt = bs_popup_leaf_rc(parent->left, DIRECTION_RIGHT);
 			if(alt != parent->left) {
@@ -102,7 +102,7 @@ static size_t bs_size_rc(bsNode* parent) {
 	if(!parent) {
 		return 0;
 	}
-	return bs_size_rc(parent->left)
+	return bs_size_rc(parent->left) + 1
 			+ bs_size_rc(parent->right);
 }
 
@@ -137,14 +137,13 @@ static bsNode* bs_remove_rc(bsNode* parent, bsNode* node) {
 }
 
 
-
 static bsNode* bs_insert_rc(bsNode* parent, bsNode* node, bs_traverse_callback callback) {
 	if(!parent) {
 		return node;
 	}
+	bsNode* alt = NULL;
 	switch(callback(parent)) {
 	case BS_REMOVE_THIS:
-		bsNode* alt = NULL;
 		if(parent->left) {
 			alt = bs_popup_leaf_rc(parent->left, DIRECTION_RIGHT);
 			if(alt != parent->left) {

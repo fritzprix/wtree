@@ -9,22 +9,27 @@
 #include "bstree_test.h"
 #include "bstree.h"
 
+
 static DECLARE_BSCALLBACK(bscall_back);
+static bsNode chunks[TEST_SIZE];
 
 int utest_bstree(void) {
 	bsRoot bsroot;
+	int i;
 	bs_rootInit(&bsroot);
 
-	bsNode* node = malloc(sizeof(bsNode));
-	if(!node) {
+	for(i = 0;i < TEST_SIZE; i++) {
+		bs_nodeInit(&chunks[i]);
+		bs_insert(&bsroot,&chunks[i],bscall_back);
+	}
+
+	if(bs_size(&bsroot) != TEST_SIZE) {
 		return -1;
 	}
-	bs_nodeInit(node);
-	bs_insert(&bsroot, node, bscall_back);
-	if(bs_size(&bsroot) != 1) {
-		return -1;
+
+	for(i = 0;i < TEST_SIZE; i++) {
+		bs_remove(&bsroot, &chunks[i]);
 	}
-	bs_remove(&bsroot, node);
 	if(bs_size(&bsroot) != 0) {
 		return -1;
 	}

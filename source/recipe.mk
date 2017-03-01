@@ -5,4 +5,5 @@ OBJ-y+= wtree\
 		segment\
 		bestfit\
 		bin\
-		yamalloc
+		yamalloc\
+		bstree

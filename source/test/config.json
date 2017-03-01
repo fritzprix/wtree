@@ -1,0 +1,18 @@
+{
+	"BENCHMARK_ENABLE": {
+		"type":"bool",
+		"default":"n",
+		"gen-list":{
+		      "BENCHMARK_ENABLE":"to_int(this)"
+	    }
+	},
+	"BENCHMARK_CONFG": {
+		"type":"config",
+		"path":"./benchmark/config.json"
+	},
+	"TEST_RECIPE": {
+		"type":"recipe",
+		"path":"./recipe.mk"
+	}	
+	
+}

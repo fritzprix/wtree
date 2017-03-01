@@ -12,6 +12,7 @@
 #define INCLUDE_TEST_COMMON_H_
 
 #include "cdsl_nrbtree.h"
+#include "autogen.h"
 #include <stdlib.h>
 #include <stddef.h>
 
