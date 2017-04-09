@@ -34,7 +34,7 @@ typedef struct {
 
 typedef struct {
 	wtreeNode_t     cache_node;
-	nrbtreeNode_t   addr_node;
+	rbtreeNode_t   addr_node;
 }bin_cacheNode_t;
 
 
@@ -52,7 +52,7 @@ void bin_root_init(binRoot_t* bin, size_t max_sz, wt_unmap_func_t unmapper, void
 	for(;idx < BIN_SPREAD_FACTOR;idx++) {
 		pthread_mutex_init(&bin->caches[idx].lock,NULL);
 		wtree_rootInit(&bin->caches[idx].bin_cache, &bin->caches[idx], &cache_adapter, sizeof(bin_cacheNode_t));
-		cdsl_nrbtreeRootInit(&bin->caches[idx].addr_root);
+		cdsl_rbtreeRootInit(&bin->caches[idx].addr_root);
 		bin->caches[idx].ref_cnt = 0;
 		bin->caches[idx].root = bin;
 		bin->caches[idx].total_sz = bin->caches[idx].free_sz = 0;
@@ -81,7 +81,7 @@ void bin_cache_unbind(binRoot_t* bin, binCache_t* cache) {
 		wtree_cleanup(&cache->bin_cache);
 //		wtree_purge(&cache->bin_cache);
 		wtree_rootInit(&cache->bin_cache, cache, &cache_adapter, sizeof(bin_cacheNode_t));
-		cdsl_nrbtreeRootInit(&cache->addr_root);
+		cdsl_rbtreeRootInit(&cache->addr_root);
 		cache->free_sz = cache->total_sz = 0;
 	}
 	pthread_mutex_unlock(&cache->lock);
@@ -104,7 +104,7 @@ void bin_root_dispose(binRoot_t* bin, binCache_t* cache, void* addr, size_t sz){
 
 	pthread_mutex_lock(&cache->lock);
 
-	cdsl_nrbtreeTraverseTarget(&cache->addr_root, bin_is_chunk_contained, (trkey_t) addr, &contained_check);
+	cdsl_rbtreeTraverseTarget(&cache->addr_root, bin_is_chunk_contained, (trkey_t) addr, &contained_check);
 	cache->free_sz += sz;
 	if(contained_check.contained) {
 		if(cache->total_sz > BIN_PURGE_THRESHOLD) {
@@ -203,10 +203,10 @@ static DECLARE_ONFREE(bin_internal_unmapper) {
 static DECLARE_ONADDED(bin_internal_on_node_added) {
 	binCache_t* cache = (binCache_t*) ext_ctx;
 	bin_cacheNode_t* cache_node = container_of(node, bin_cacheNode_t, cache_node);
-	cdsl_nrbtreeNodeInit(&cache_node->addr_node, (trkey_t) node->top - node->base_size);
+	cdsl_rbtreeNodeInit(&cache_node->addr_node, (trkey_t) node->top - node->base_size);
 
 	if(node->base_size) {
-		cdsl_nrbtreeInsert(&cache->addr_root, &cache_node->addr_node, FALSE);
+		cdsl_rbtreeInsert(&cache->addr_root, &cache_node->addr_node, FALSE);
 	}
 }
 static DECLARE_ONREMOVED(bin_internal_on_node_removoed) {
@@ -214,5 +214,5 @@ static DECLARE_ONREMOVED(bin_internal_on_node_removoed) {
 	bin_cacheNode_t* cache_node = container_of(node, bin_cacheNode_t, cache_node);
 	if(!node->base_size)
 		return;
-	cdsl_nrbtreeDelete(&cache->addr_root, cache_node->addr_node.key);
+	cdsl_rbtreeDelete(&cache->addr_root, cache_node->addr_node.key);
 }

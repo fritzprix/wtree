@@ -6,7 +6,7 @@
  */
 
 #include "quantum.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 #include <unistd.h>
 #include <sys/mman.h>
 #include <string.h>
@@ -42,11 +42,6 @@
  */
 
 #define QMAP_COUNT		32
-#define SEGMENT_SIZE 	(1 << 20)
-
-#define DIR_LEFT		1
-#define DIR_RIGHT       2
-
 #ifndef QUANTUM_POOL_PURGE_DEPTH_THRESHOLD
 #define QUANTUM_POOL_PURGE_DEPTH_THRESHOLD 16
 #endif
@@ -59,7 +54,7 @@ typedef uint64_t qmap_t;
 
 
 struct quantum {
-	nrbtreeNode_t    qtree_node;
+	rbtreeNode_t    qtree_node;
 	quantumNode_t    *entry;
 };
 
@@ -75,7 +70,7 @@ struct quantum_node {
 	uint16_t         qcnt;             // number of total available quantum
 	uint16_t         quantum;          // quantum class
 	void*            top;              // top
-	nrbtreeNode_t    addr_rbnode;      // rbtree node for address lookup
+	rbtreeNode_t    addr_rbnode;      // rbtree node for address lookup
 	union {
 		qmap_t           map[QMAP_COUNT];  // bitmap
 		slistNode_t		 clr_lhead;
@@ -116,13 +111,13 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 	root->adapter.onfree = unmapper;
 	root->adapter.onallocate = mapper;
 	root->adapter.onremoved = root->adapter.onadded = NULL;
-	cdsl_nrbtreeRootInit(&root->addr_rbroot);
-	cdsl_nrbtreeRootInit(&root->quantum_tree);
+	cdsl_rbtreeRootInit(&root->addr_rbroot);
+	cdsl_rbtreeRootInit(&root->quantum_tree);
 	wtree_rootInit(&root->quantum_pool,NULL,&root->adapter,0);
 	cdsl_slistEntryInit(&root->clr_lentry);
 
 	size_t seg_sz;
-	uint8_t* init_seg = mapper(1, &seg_sz,NULL);
+	uint8_t* init_seg = mapper(1, &seg_sz, NULL);
 	wtreeNode_t* qpool = wtree_baseNodeInit(&root->quantum_pool, init_seg, seg_sz);
 	wtree_addNode(&root->quantum_pool,qpool,FALSE,NULL);
 }
@@ -137,7 +132,7 @@ void* quantum_reclaim_chunk(quantumRoot_t* root, ssize_t sz) {
 	/*
 	 *  direct casting is possible, because rbnode is first element in quantum struct
 	 */
-	quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, sz);
+	quantum_t* quantum = (quantum_t*) cdsl_rbtreeLookup(&root->quantum_tree, sz);
 	if(!quantum) {
 		quantum = quantum_new(root, sz);
 	}
@@ -158,7 +153,7 @@ size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk) {
 	struct getsz_arg arg;
 	arg.chunk = chunk;
 	arg.sz = 0;
-	cdsl_nrbtreeTraverseTarget(&root->addr_rbroot,find_chunk_size, (trkey_t) chunk, &arg);
+	cdsl_rbtreeTraverseTarget(&root->addr_rbroot,find_chunk_size, (trkey_t) chunk, &arg);
 	return arg.sz;
 }
 
@@ -166,7 +161,7 @@ size_t quantum_get_chunk_size(quantumRoot_t* root, void* chunk) {
 int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	if(!chunk)
 		return FALSE;
-	nrbtreeNode_t* cnode = cdsl_nrbtreeTop(&root->addr_rbroot);
+	rbtreeNode_t* cnode = cdsl_rbtreeTop(&root->addr_rbroot);
 	quantumNode_t* qnode;
 	int depth = 0;
 
@@ -175,9 +170,9 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 	while(cnode) {
 		qnode = container_of(cnode,quantumNode_t, addr_rbnode);
 		if((size_t) chunk < (size_t) qnode) {
-			cnode = cdsl_nrbtreeGoLeft(cnode);
+			cnode = cdsl_rbtreeGoLeft(cnode);
 		} else if((size_t) chunk > (size_t) qnode->top) {
-			cnode = cdsl_nrbtreeGoRight(cnode);
+			cnode = cdsl_rbtreeGoRight(cnode);
 		} else {
 			/*
 			 *  original quantum node found
@@ -190,7 +185,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				 * and leaf node, we can free it to cache
 				 */
 				if(!qnode->parent) {
-					quantum_t* quantum = (quantum_t*) cdsl_nrbtreeLookup(&root->quantum_tree, (trkey_t) qnode->quantum);
+					quantum_t* quantum = (quantum_t*) cdsl_rbtreeLookup(&root->quantum_tree, (trkey_t) qnode->quantum);
 					if (!quantum) {
 						fprintf(stderr, "Ivalid Quantum %d\n", qnode->quantum);
 						exit(-1);
@@ -224,7 +219,7 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 				}
 
 				// delete quantum node from address lookup tree
-				cdsl_nrbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
+				cdsl_rbtreeDelete(&root->addr_rbroot,(trkey_t) qnode);
 				wtreeNode_t* free_q = wtree_nodeInit(&root->quantum_pool,qnode, (size_t) qnode->top - (size_t) qnode, NULL);
 				wtree_addNode(&root->quantum_pool,free_q,TRUE, &depth);
 			}
@@ -242,12 +237,12 @@ int quantum_free_chunk(quantumRoot_t* root, void* chunk) {
 void quantum_try_purge_cache(quantumRoot_t* root) {
 	if(!root)
 		return;
-	cdsl_nrbtreeTraverse(&root->addr_rbroot, try_purge_for_each_qnode, ORDER_INC, root);
+	cdsl_rbtreeTraverse(&root->addr_rbroot, try_purge_for_each_qnode, ORDER_INC, root);
 	quantumNode_t* qnode;
 	wtreeNode_t* pnode;
 	while((qnode = (quantumNode_t*) cdsl_slistRemoveHead(&root->clr_lentry))) {
 		qnode = container_of(qnode, quantumNode_t, clr_lhead);
-		if(!cdsl_nrbtreeDelete(&root->addr_rbroot, (size_t) qnode)) {
+		if(!cdsl_rbtreeDelete(&root->addr_rbroot, (size_t) qnode)) {
 			fprintf(stderr, "Null node is detected in purge op.");
 			exit(-1);
 		}
@@ -281,7 +276,7 @@ void quantum_print(quantumRoot_t* root) {
 	if(!root)
 		return;
 	printf("\n");
-	cdsl_nrbtreeTraverse(&root->quantum_tree, for_each_quantum_print, ORDER_INC, root);
+	cdsl_rbtreeTraverse(&root->quantum_tree, for_each_quantum_print, ORDER_INC, root);
 	printf("\n");
 }
 
@@ -291,7 +286,7 @@ static void quantum_init(quantum_t* quantum, uint16_t qsz) {
 	if(!quantum)
 		return;
 	quantum->entry = NULL;
-	cdsl_nrbtreeNodeInit(&quantum->qtree_node,qsz);
+	cdsl_rbtreeNodeInit(&quantum->qtree_node,qsz);
 }
 
 
@@ -303,7 +298,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz, ssize_t hsz, BO
 	node->qcnt = QUANTUM_COUNT_MAX - 1;
 	node->left = node->right = NULL;
 	node->top = (void*) (((size_t) node) + qsz * QUANTUM_COUNT_MAX);
-	cdsl_nrbtreeNodeInit(&node->addr_rbnode, (trkey_t) node);
+	cdsl_rbtreeNodeInit(&node->addr_rbnode, (trkey_t) node);
 	cdsl_slistNodeInit(&node->clr_lhead);
 	memset(node->map, 0xff, sizeof(qmap_t) *  QMAP_COUNT);
 	qmap_t msk = 1;
@@ -339,7 +334,7 @@ static void quantum_node_init(quantumNode_t* node, uint16_t qsz, ssize_t hsz, BO
 static void quantum_add(quantumRoot_t* root, quantum_t* quantum) {
 	if(!root || !quantum)
 		return;
-	cdsl_nrbtreeInsert(&root->quantum_tree, &quantum->qtree_node, FALSE);
+	cdsl_rbtreeInsert(&root->quantum_tree, &quantum->qtree_node, FALSE);
 }
 
 static quantum_t* quantum_new(quantumRoot_t* root, size_t quantum_sz) {
@@ -359,7 +354,7 @@ static void quantum_node_add(quantumRoot_t* root, quantum_t* quantum, quantumNod
 		return;
 	quantum->entry = quantum_node_insert_rc(quantum->entry, qnode);
 	quantum->entry->parent = NULL;
-	cdsl_nrbtreeInsert(&root->addr_rbroot, &qnode->addr_rbnode, FALSE);
+	cdsl_rbtreeInsert(&root->addr_rbroot, &qnode->addr_rbnode, FALSE);
 }
 
 static quantumNode_t* quantum_node_insert_rc(quantumNode_t* parent, quantumNode_t* item) {

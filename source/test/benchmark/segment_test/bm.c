@@ -8,7 +8,7 @@
 
 #include "wtree.h"
 #include "segment.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -29,14 +29,14 @@ static DECLARE_ONFREE(unmapper);
 
 
 struct segment_node {
-	nrbtreeNode_t    rbnode;
+	rbtreeNode_t    rbnode;
 	size_t           sz;
 };
 
 static void* segment_test(void* arg);
 
 
-int main(void) {
+int perform_benchmark(void) {
 	pthread_t pids[TH_CNT];
 	pthread_t thread;
 	int j,i = 0;
@@ -56,11 +56,11 @@ int main(void) {
 
 static void* segment_test(void* arg) {
 	segmentRoot_t segroot;
-	nrbtreeRoot_t rbroot;
+	rbtreeRoot_t rbroot;
 	trkey_t key_large = 1;
 	setbuf(stdout, NULL);
 	segment_root_init(&segroot, NULL, mapper, unmapper);
-	cdsl_nrbtreeRootInit(&rbroot);
+	cdsl_rbtreeRootInit(&rbroot);
 
 	segment_create_cache(&segroot, key_large);
 
@@ -83,14 +83,14 @@ static void* segment_test(void* arg) {
 			exit(-1);
 		}
 		segnode = (struct segment_node*) segment;
-		cdsl_nrbtreeNodeInit(&segnode->rbnode, cnt);
+		cdsl_rbtreeNodeInit(&segnode->rbnode, cnt);
 		segnode->sz = sz;
-		cdsl_nrbtreeInsert(&rbroot, &segnode->rbnode);
+		cdsl_rbtreeInsert(&rbroot, &segnode->rbnode);
 	}
 	printf("map finished\n");
 
 
-	while((segnode = (struct segment_node*) cdsl_nrbtreeDeleteMax(&rbroot))) {
+	while((segnode = (struct segment_node*) cdsl_rbtreeDeleteMax(&rbroot))) {
 		segnode = container_of(segnode, struct segment_node, rbnode);
 		segment_unmap(&segroot,key_large, segnode, segnode->sz);
 	}

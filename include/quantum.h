@@ -10,7 +10,7 @@
 
 
 #include "wtree.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 #include "cdsl_slist.h"
 
 #ifdef __cplusplus
@@ -31,8 +31,8 @@ extern "C" {
 
 
 typedef struct {
-	nrbtreeRoot_t    addr_rbroot;
-	nrbtreeRoot_t    quantum_tree;
+	rbtreeRoot_t    addr_rbroot;
+	rbtreeRoot_t    quantum_tree;
 	wtreeRoot_t      quantum_pool;
 	slistEntry_t     clr_lentry;
 	wt_adapter       adapter;

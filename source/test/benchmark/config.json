@@ -1,0 +1,22 @@
+{
+	"BM_TARGET" : {
+		"type":"enum",
+		"enum": [
+			"wt_test",
+			"quantum_test",
+			"segment_test",
+			"bfit_test",
+			"bin_test",
+			"malloc_test"
+		],
+		"default": 1
+	},
+	"BM_SUB_CONFIG" : {
+		"type":"config",
+		"path":"./$BM_TARGET/config.json"
+	},
+	"BM_RECIPE" : {
+		"type":"recipe",
+		"path":"./recipe.mk"
+	}
+}

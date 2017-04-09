@@ -1,22 +1,18 @@
 {
-	"TEST_TARGET" : {
-		"type":"enum",
-		"enum": [
-			"wt_test",
-			"quantum_test",
-			"segment_test",
-			"bfit_test",
-			"bin_test",
-			"malloc_test"
-		],
-		"default": 1
+	"BENCHMARK_ENABLE": {
+		"type":"bool",
+		"default":"n",
+		"gen-list":{
+		      "BENCHMARK_ENABLE":"to_int(this)"
+	    }
 	},
-	"TEST_SUB_CONFIG" : {
+	"BENCHMARK_CONFG": {
 		"type":"config",
-		"path":"./$TEST_TARGET/config.json"
+		"path":"./benchmark/config.json"
 	},
-	"TEST_RECIPE" : {
+	"TEST_RECIPE": {
 		"type":"recipe",
 		"path":"./recipe.mk"
-	}
+	}	
+	
 }

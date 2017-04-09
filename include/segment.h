@@ -11,7 +11,7 @@
 #include <pthread.h>
 
 #include "wtree.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,7 +19,7 @@ extern "C" {
 
 
 typedef struct {
-	nrbtreeRoot_t     cache_root;     // segment cache red black tree root
+	rbtreeRoot_t     cache_root;     // segment cache red black tree root
 	wt_map_func_t     mapper;         // underlying mapper
 	wt_unmap_func_t   unmapper;       // underlying unmapper
 	slistEntry_t      clr_lentry;     // list entry for segment cache to be cleared
@@ -27,8 +27,8 @@ typedef struct {
 } segmentRoot_t;
 
 typedef struct {
-	nrbtreeNode_t     rbnode;         // segment cache red black tree node
-	nrbtreeRoot_t     addr_rbroot;    // address lookup tree
+	rbtreeNode_t     rbnode;         // segment cache red black tree node
+	rbtreeRoot_t     addr_rbroot;    // address lookup tree
 	wtreeRoot_t       seg_pool;       // memory segment pool
 	size_t            total_sz;       // total size in bytes
 	size_t            free_sz;        // free size in bytes

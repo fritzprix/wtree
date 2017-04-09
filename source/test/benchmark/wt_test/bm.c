@@ -6,7 +6,6 @@
  */
 
 
-#include "wtmalloc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -18,7 +17,7 @@
 #include <time.h>
 
 #include "common.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 #include "wtree.h"
 
 #define LOOP_CNT     40
@@ -40,7 +39,7 @@ static void perf_test_oldmalloc(void);
 
 
 
-int main(void){
+int perform_benchmark(void) {
 
 	pid_t pid = fork();
 	if(pid > 0) {
@@ -78,8 +77,8 @@ static void* malloc_test(void* arg)
 	int cnt;
 	large_person_t* p = NULL;
 	struct test_report* report = (struct test_report*) arg;
-	nrbtreeRoot_t root;
-	cdsl_nrbtreeRootInit(&root);
+	rbtreeRoot_t root;
+	cdsl_rbtreeRootInit(&root);
 
 	int rn;
 	clock_t sub_start,sub_end;
@@ -90,8 +89,7 @@ static void* malloc_test(void* arg)
 		rn = (rand_r(&seed) % (1 << 20)) + 2;
 		p = malloc(rn);
 		report->rand_malloc_only_time +=  sub_end - sub_start;
-		p->age = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
 		free(p);
 		report->rand_free_only_time += sub_end - sub_start;
 	}
@@ -105,9 +103,8 @@ static void* malloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = malloc(sizeof(large_person_t));
-		p->age = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
-		cdsl_nrbtreeInsert(&root, &p->node);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeInsert(&root, &p->node, FALSE);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -117,7 +114,7 @@ static void* malloc_test(void* arg)
 
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+		p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 		if(!p)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -133,13 +130,12 @@ static void* malloc_test(void* arg)
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = malloc(sizeof(large_person_t));
-			p->age = cnt;
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -157,13 +153,13 @@ static void* malloc_test(void* arg)
 	seed = (uint32_t) startts.tv_sec;
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = rand_r(&seed) % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
+			rn = rand_r(&seed) % MAX_REQ_SIZE + sizeof(rbtreeNode_t) & ~3;
 			p = malloc(rn);
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -200,8 +196,8 @@ static void* ymalloc_test(void* arg)
 	int cnt;
 	large_person_t* p = NULL;
 	struct test_report* report = (struct test_report*) arg;
-	nrbtreeRoot_t root;
-	cdsl_nrbtreeRootInit(&root);
+	rbtreeRoot_t root;
+	cdsl_rbtreeRootInit(&root);
 
 	int rn;
 	clock_t sub_start,sub_end;
@@ -212,8 +208,7 @@ static void* ymalloc_test(void* arg)
 		rn = (rand_r(&seed) % (1 << 20)) + 2;
 		p = wt_malloc(rn);
 		report->rand_malloc_only_time +=  sub_end - sub_start;
-		p->age = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
 		wt_free(p);
 		report->rand_free_only_time += sub_end - sub_start;
 	}
@@ -227,9 +222,8 @@ static void* ymalloc_test(void* arg)
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = wt_malloc(sizeof(large_person_t));
-		p->age = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
-		cdsl_nrbtreeInsert(&root, &p->node);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeInsert(&root, &p->node, FALSE);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -239,7 +233,7 @@ static void* ymalloc_test(void* arg)
 
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+		p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 		if(!p)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -255,13 +249,12 @@ static void* ymalloc_test(void* arg)
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = wt_malloc(sizeof(large_person_t));
-			p->age = cnt;
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -279,13 +272,13 @@ static void* ymalloc_test(void* arg)
 	seed = (uint32_t) startts.tv_sec;
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = rand_r(&seed) % MAX_REQ_SIZE + sizeof(nrbtreeNode_t) & ~3;
+			rn = rand_r(&seed) % MAX_REQ_SIZE + sizeof(rbtreeNode_t) & ~3;
 			p = wt_malloc(rn);
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");

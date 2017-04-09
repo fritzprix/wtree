@@ -9,6 +9,6 @@
 #include <unistd.h>
 
 
-int main(void){
+int perform_benchmark(void) {
 	return 0;
 }
