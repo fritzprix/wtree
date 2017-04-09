@@ -15,7 +15,7 @@
 
 #include <pthread.h>
 #include "wtree.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 
 
 #ifdef __cplusplus
@@ -32,7 +32,7 @@ typedef struct bin_root binRoot_t;
 typedef struct {
 	binRoot_t*         root;
 	pthread_mutex_t    lock;
-	nrbtreeRoot_t      addr_root;
+	rbtreeRoot_t      addr_root;
 	wtreeRoot_t        bin_cache;
 	int                ref_cnt;
 	size_t             total_sz;

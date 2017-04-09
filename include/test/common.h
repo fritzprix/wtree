@@ -11,7 +11,7 @@
 #ifndef INCLUDE_TEST_COMMON_H_
 #define INCLUDE_TEST_COMMON_H_
 
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 #include "autogen.h"
 #include <stdlib.h>
 #include <stddef.h>
@@ -34,14 +34,14 @@ struct test_report {
 };
 
 typedef struct {
-	nrbtreeNode_t node;
+	rbtreeNode_t node;
 	size_t        size;
 }small_chunk_t;
 
 typedef struct  {
 	union {
 		struct {
-			nrbtreeNode_t node;
+			rbtreeNode_t node;
 			size_t        size;
 		};
 		small_chunk_t    small_chunk;

@@ -7,7 +7,7 @@
 
 
 #include "quantum.h"
-#include "cdsl_nrbtree.h"
+#include "cdsl_rbtree.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -50,10 +50,10 @@ static DECLARE_ONFREE(unmap_segment) {
 static void* test_runner(void* arg) {
 	printf("started\n");
 	quantumRoot_t root;
-	nrbtreeRoot_t rbroot;
+	rbtreeRoot_t rbroot;
 
 
-	cdsl_nrbtreeRootInit(&rbroot);
+	cdsl_rbtreeRootInit(&rbroot);
 	quantum_root_init(&root, map_segment,unmap_segment);
 	int i;
 	for(i = 0;i < 100000;i++) {
@@ -62,12 +62,12 @@ static void* test_runner(void* arg) {
 	for(i = 0;i < 100000;i++) {
 		quantum_free_chunk(&root, mem[i]);
 	}
-	size_t req_sz, base_sz = sizeof(nrbtreeNode_t);
+	size_t req_sz, base_sz = sizeof(rbtreeNode_t);
 	size_t rand_sz = QUANTUM_MAX - base_sz;
 	int rn;
 	clock_t end,start = clock();
 	uint32_t seed = (uint32_t)start;
-	nrbtreeNode_t* node;
+	rbtreeNode_t* node;
 	trkey_t key = 0;
 	for(i = 0;i < 100000;i++) {
 		rn  = rand_r(&seed) % 0xffffff;
@@ -78,13 +78,13 @@ static void* test_runner(void* arg) {
 			fprintf(stderr,"Memory allocation fail \n");
 			exit(-1);
 		}
-		cdsl_nrbtreeNodeInit(node, i);
-		cdsl_nrbtreeInsert(&rbroot, node);
+		cdsl_rbtreeNodeInit(node, i);
+		cdsl_rbtreeInsert(&rbroot, node);
 	}
 	quantum_print(&root);
 	end = clock();
 	for(i = 0;i < 100000;i++) {
-		node = cdsl_nrbtreeDeleteMax(&rbroot);
+		node = cdsl_rbtreeDeleteMax(&rbroot);
 		if(!node) {
 			fprintf(stderr, "Memory Chunk Lost\n");
 			exit(-1);

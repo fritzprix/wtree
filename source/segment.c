@@ -25,13 +25,13 @@
 
 
 typedef struct {
-	nrbtreeRoot_t   lookup_rtree;
+	rbtreeRoot_t   lookup_rtree;
 	pthread_mutex_t lock;
 } segmentLookup_t;
 
 typedef struct {
 	wtreeNode_t    cache_node;
-	nrbtreeNode_t  addr_node;
+	rbtreeNode_t  addr_node;
 } segment_t;
 
 typedef struct {
@@ -64,7 +64,7 @@ static wt_adapter adapter = {
 
 void segment_root_init(segmentRoot_t* root,void* ext_ctx,wt_map_func_t mapper, wt_unmap_func_t unmapper) {
 	if(!mapper)   return;
-	cdsl_nrbtreeRootInit(&root->cache_root);
+	cdsl_rbtreeRootInit(&root->cache_root);
 	root->mapper = mapper;
 	root->unmapper = unmapper;
 	root->ext_ctx = ext_ctx;
@@ -81,8 +81,8 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 	wtreeNode_t* node = wtree_baseNodeInit(&dummy_root, chunk, rsz);
 	segmentCache_t* segment_cache = wtree_reclaim_chunk_from_node(node, sizeof(segmentCache_t));
 
-	cdsl_nrbtreeRootInit(&segment_cache->addr_rbroot);
-	cdsl_nrbtreeNodeInit(&segment_cache->rbnode, cache_id);
+	cdsl_rbtreeRootInit(&segment_cache->addr_rbroot);
+	cdsl_rbtreeNodeInit(&segment_cache->rbnode, cache_id);
 	segment_cache->bootstrap_seg = chunk;
 
 	segment_cache->free_sz = segment_cache->total_sz = rsz;
@@ -92,13 +92,13 @@ void segment_create_cache(segmentRoot_t* root, trkey_t cache_id) {
 
 	wtree_rootInit(&segment_cache->seg_pool, segment_cache, &adapter, sizeof(segment_t));
 	wtree_addNode(&segment_cache->seg_pool, node, TRUE,NULL);
-	cdsl_nrbtreeInsert(&root->cache_root, &segment_cache->rbnode, FALSE);
+	cdsl_rbtreeInsert(&root->cache_root, &segment_cache->rbnode, FALSE);
 }
 
 BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr) {
 	if(!root || !addr) return FALSE;
 
-	segmentCache_t* cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root,cache_id);
+	segmentCache_t* cache = (segmentCache_t*) cdsl_rbtreeLookup(&root->cache_root,cache_id);
 
 	if(!cache) return FALSE;
 
@@ -106,7 +106,7 @@ BOOL segment_is_from_cache(segmentRoot_t* root, trkey_t cache_id, void* addr) {
 	contain_arg_t arg;
 	arg.found = FALSE;
 	arg.addr = addr;
-	cdsl_nrbtreeTraverseTarget(&cache->addr_rbroot, segment_for_each_contains, (trkey_t) addr, &arg);
+	cdsl_rbtreeTraverseTarget(&cache->addr_rbroot, segment_for_each_contains, (trkey_t) addr, &arg);
 	return arg.found;
 }
 
@@ -115,7 +115,7 @@ void* segment_map(segmentRoot_t* root, trkey_t cache_id, size_t sz) {
 
 	if(!root || !sz)  return NULL;
 
-	segmentCache_t* cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root, cache_id);
+	segmentCache_t* cache = (segmentCache_t*) cdsl_rbtreeLookup(&root->cache_root, cache_id);
 	if(!cache) return NULL;
 
 	cache = container_of(cache, segmentCache_t, rbnode);
@@ -132,7 +132,7 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 
 	if(!root || !sz) return;
 
-	segmentCache_t* cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root, cache_id);
+	segmentCache_t* cache = (segmentCache_t*) cdsl_rbtreeLookup(&root->cache_root, cache_id);
 	if(!cache) return;
 
 	cache = container_of(cache, segmentCache_t, rbnode);
@@ -150,7 +150,7 @@ void segment_unmap(segmentRoot_t* root, trkey_t cache_id, void* addr, size_t sz)
 void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
 	if(!root) return;
 
-	segmentCache_t* cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root, cache_id);
+	segmentCache_t* cache = (segmentCache_t*) cdsl_rbtreeLookup(&root->cache_root, cache_id);
 	if(!cache) return;
 
 	cache = container_of(cache, segmentCache_t, rbnode);
@@ -160,7 +160,7 @@ void segment_print_cache(segmentRoot_t* root, trkey_t cache_id) {
 void segment_purge_target_cache(segmentRoot_t* root, trkey_t cache_id) {
 	if(!root)  return;
 
-	segmentCache_t* seg_cache = (segmentCache_t*) cdsl_nrbtreeLookup(&root->cache_root, cache_id);
+	segmentCache_t* seg_cache = (segmentCache_t*) cdsl_rbtreeLookup(&root->cache_root, cache_id);
 	if(!seg_cache) return;
 
 	seg_cache = container_of(seg_cache, segmentCache_t, rbnode);
@@ -170,7 +170,7 @@ void segment_purge_target_cache(segmentRoot_t* root, trkey_t cache_id) {
 void segment_purge_caches(segmentRoot_t* root) {
 	if(!root) return;
 
-	cdsl_nrbtreeTraverse(&root->cache_root, for_each_segcache_try_purge, ORDER_INC,root);
+	cdsl_rbtreeTraverse(&root->cache_root, for_each_segcache_try_purge, ORDER_INC,root);
 }
 
 void segment_cleanup(segmentRoot_t* root) {
@@ -182,7 +182,7 @@ void segment_cleanup(segmentRoot_t* root) {
 	segmentCache_t* cache;
 	segment_t* seg;
 
-	cdsl_nrbtreeTraverse(&root->cache_root,for_each_segcache_cleanup, ORDER_INC, root);
+	cdsl_rbtreeTraverse(&root->cache_root,for_each_segcache_cleanup, ORDER_INC, root);
 	segmentClr_t* clr_node;
 	while((clr_node = (segmentClr_t*) cdsl_slistRemoveHead(&root->clr_lentry))) {
 		clr_node = container_of(clr_node, segmentClr_t, clr_list);
@@ -207,9 +207,9 @@ static DECLARE_ONADDED(segment_internal_onadd) {
 
 	segment_t* segment = container_of(node, segment_t, cache_node);
 	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
-	cdsl_nrbtreeNodeInit(&segment->addr_node, (trkey_t) segment->cache_node.top - segment->cache_node.base_size);
+	cdsl_rbtreeNodeInit(&segment->addr_node, (trkey_t) segment->cache_node.top - segment->cache_node.base_size);
 	if(segment->cache_node.base_size) {
-		cdsl_nrbtreeInsert(&segcache->addr_rbroot, &segment->addr_node, FALSE);
+		cdsl_rbtreeInsert(&segcache->addr_rbroot, &segment->addr_node, FALSE);
 	}
 }
 
@@ -218,7 +218,7 @@ static DECLARE_ONREMOVED(segment_internal_onremoved) {
 
 	segment_t* segment = container_of(node, segment_t, cache_node);
 	segmentCache_t* segcache = (segmentCache_t*) ext_ctx;
-	cdsl_nrbtreeDelete(&segcache->addr_rbroot, segment->addr_node.key);
+	cdsl_rbtreeDelete(&segcache->addr_rbroot, segment->addr_node.key);
 }
 
 static DECLARE_ONALLOCATE(segment_internal_mapper) {
@@ -262,7 +262,7 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 	segmentCache_t* seg_cache = container_of(node, segmentCache_t, rbnode);
 	slistEntry_t cleanup_list;
 	cdsl_slistEntryInit(&cleanup_list);
-	cdsl_nrbtreeTraverse(&seg_cache->addr_rbroot, for_each_segment_cleanup, ORDER_INC, &cleanup_list);
+	cdsl_rbtreeTraverse(&seg_cache->addr_rbroot, for_each_segment_cleanup, ORDER_INC, &cleanup_list);
 	void* seg_base = seg_cache->bootstrap_seg;
 	void* clr_base;
 	segmentClr_t* seg_clr;
@@ -270,7 +270,7 @@ static DECLARE_TRAVERSE_CALLBACK(for_each_segcache_cleanup) {
 		seg_clr = container_of(seg_clr, segmentClr_t, clr_list);
 		clr_base = (void*) ((size_t)seg_clr->segment_hdr.cache_node.top - seg_clr->segment_hdr.cache_node.base_size);
 		if(clr_base != seg_base) {
-			cdsl_nrbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key);
+			cdsl_rbtreeDelete(&seg_cache->addr_rbroot, seg_clr->segment_hdr.addr_node.key);
 			seg_root->unmapper(clr_base, seg_clr->segment_hdr.cache_node.base_size, &seg_clr->segment_hdr.cache_node,seg_root->ext_ctx);
 		} else {
 			cdsl_slistNodeInit(&seg_clr->clr_list);

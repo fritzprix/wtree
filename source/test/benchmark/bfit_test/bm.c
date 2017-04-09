@@ -85,8 +85,8 @@ static void* malloc_test(void* arg)
 	int cnt;
 	large_person_t* p = NULL;
 	struct test_report* report = (struct test_report*) arg;
-	nrbtreeRoot_t root;
-	cdsl_nrbtreeRootInit(&root);
+	rbtreeRoot_t root;
+	cdsl_rbtreeRootInit(&root);
 
 	size_t t_sz;
 	clock_t sub_start,sub_end;
@@ -98,7 +98,7 @@ static void* malloc_test(void* arg)
 		p = malloc(t_sz);
 		report->rand_malloc_only_time +=  sub_end - sub_start;
 		p->size = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
 		free(p);
 		report->rand_free_only_time += sub_end - sub_start;
 	}
@@ -113,8 +113,8 @@ static void* malloc_test(void* arg)
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = malloc(sizeof(large_person_t));
 		p->size = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
-		cdsl_nrbtreeInsert(&root, &p->node);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeInsert(&root, &p->node);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -124,7 +124,7 @@ static void* malloc_test(void* arg)
 
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+		p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 		if(!p)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -141,12 +141,12 @@ static void* malloc_test(void* arg)
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = malloc(sizeof(large_person_t));
 			p->size = cnt;
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -164,13 +164,13 @@ static void* malloc_test(void* arg)
 	seed = (uint32_t) startts.tv_sec;
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			t_sz = (size_t)((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(nrbtreeNode_t)) & ~3;
+			t_sz = (size_t)((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(rbtreeNode_t)) & ~3;
 			p = malloc(t_sz);
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -204,7 +204,7 @@ static void* malloc_test(void* arg)
 static void* test_bfit(void* arg) {
 	segmentRoot_t sgroot;
 	bfitRoot_t* bfroot;
-	nrbtreeRoot_t root;
+	rbtreeRoot_t root;
 	struct test_report* report = (struct test_report*) arg;
 	clock_t start,end;
 	clock_t sub_start,sub_end;
@@ -213,7 +213,7 @@ static void* test_bfit(void* arg) {
 	int cnt;
 	large_person_t* p = NULL;
 
-	cdsl_nrbtreeRootInit(&root);
+	cdsl_rbtreeRootInit(&root);
 	segment_root_init(&sgroot, NULL,ext_segment_mapper, ext_segment_unmapper);
 	segment_create_cache(&sgroot, key_bfcache);
 	bfroot = bfit_root_create(&sgroot, bfitcache_mapper,bfitcache_unmapper);
@@ -225,7 +225,7 @@ static void* test_bfit(void* arg) {
 		rn = (rand_r(&seed) % (1 << 20)) + 2;
 		p = bfit_reclaim_chunk(bfroot,rn);
 		p->size = (size_t) cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
 		bfit_free_chunk(bfroot, p);
 		report->rand_free_only_time += sub_end - sub_start;
 	}
@@ -240,8 +240,8 @@ static void* test_bfit(void* arg) {
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
 		p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
 		p->size = cnt;
-		cdsl_nrbtreeNodeInit(&p->node,cnt);
-		cdsl_nrbtreeInsert(&root, &p->node);
+		cdsl_rbtreeNodeInit(&p->node,cnt);
+		cdsl_rbtreeInsert(&root, &p->node);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -251,7 +251,7 @@ static void* test_bfit(void* arg) {
 
 	clock_gettime(CLOCK_REALTIME,&startts);
 	for(cnt = 0;cnt < TEST_CNT;cnt++){
-		p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+		p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 		if(!p)
 		{
 			fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -268,12 +268,12 @@ static void* test_bfit(void* arg) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
 			p->size = cnt;
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -291,15 +291,15 @@ static void* test_bfit(void* arg) {
 	seed = (uint32_t) startts.tv_sec;
 	for(loop_cnt = 0;loop_cnt < LOOP_CNT; loop_cnt++) {
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			rn = ((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(nrbtreeNode_t)) & ~3;
+			rn = ((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(rbtreeNode_t)) & ~3;
 			if(rn < 0)
 				printf("wtf!\n");
 			p = bfit_reclaim_chunk(bfroot, rn);
-			cdsl_nrbtreeNodeInit(&p->node,cnt);
-			cdsl_nrbtreeInsert(&root, &p->node);
+			cdsl_rbtreeNodeInit(&p->node,cnt);
+			cdsl_rbtreeInsert(&root, &p->node);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
-			p = (large_person_t*) cdsl_nrbtreeDelete(&root, cnt);
+			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
 			if(!p)
 			{
 				fprintf(stderr,"abnormal pointer from tree !!\n");
@@ -336,10 +336,10 @@ static void* test_bfit(void* arg) {
 				fprintf(stderr, "OOM\n");
 				exit(-1);
 			}
-			cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) sp);
-			cdsl_nrbtreeInsert(&root, &sp->node);
+			cdsl_rbtreeNodeInit(&sp->node, (trkey_t) sp);
+			cdsl_rbtreeInsert(&root, &sp->node);
 		}
-		while ((sp = (small_chunk_t*) cdsl_nrbtreeDeleteMax(&root))) {
+		while ((sp = (small_chunk_t*) cdsl_rbtreeDeleteMax(&root))) {
 			sp = container_of(sp, small_chunk_t, node);
 			bfit_free_chunk(bfroot, sp);
 		}

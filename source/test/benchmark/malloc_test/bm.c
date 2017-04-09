@@ -44,7 +44,7 @@ static void on_produce(void*, void*, size_t);
 static void* on_consume(void*, size_t*);
 static BOOL on_validate(void*, void*, size_t);
 struct test_context {
-	nrbtreeRoot_t root;
+	rbtreeRoot_t root;
 	int cnt;
 };
 
@@ -89,7 +89,7 @@ int perform_benchmark(void) {
 static void* malloc_test(void* arg)
 {
 	struct test_context tctx;
-	cdsl_nrbtreeRootInit(&tctx.root);
+	cdsl_rbtreeRootInit(&tctx.root);
 	large_person_t* lp = NULL;
 	small_chunk_t* sp = NULL;
 	int loop_cnt;
@@ -101,7 +101,7 @@ static void* malloc_test(void* arg)
 
 	perform_consecutive_fix_malloc(&tctx, malloc, on_produce,sizeof(large_person_t), TEST_CNT, &report->malloc_time);
 	perform_consecutive_free(&tctx, free, on_consume, on_validate, &report->free_time);
-	assert(cdsl_nrbtreeIsEmpty(&tctx.root));
+	assert(cdsl_rbtreeIsEmpty(&tctx.root));
 
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
 		perform_consecutive_fix_malloc(&tctx, malloc, on_produce, sizeof(large_person_t), TEST_CNT, &report->repeat_deep_malloc_free_time_fixed_mid_size);
@@ -131,7 +131,7 @@ static void* malloc_test(void* arg)
 
 static void* test_ym(void* arg) {
 	struct test_context tctx;
-	cdsl_nrbtreeRootInit(&tctx.root);
+	cdsl_rbtreeRootInit(&tctx.root);
 	large_person_t* lp = NULL;
 	small_chunk_t* sp = NULL;
 	int loop_cnt;
@@ -143,7 +143,7 @@ static void* test_ym(void* arg) {
 
 	perform_consecutive_fix_malloc(&tctx, yam_malloc, on_produce,sizeof(large_person_t), TEST_CNT, &report->malloc_time);
 	perform_consecutive_free(&tctx, yam_free, on_consume, on_validate, &report->free_time);
-	assert(cdsl_nrbtreeIsEmpty(&tctx.root));
+	assert(cdsl_rbtreeIsEmpty(&tctx.root));
 
 
 	for(loop_cnt = 0; loop_cnt < LOOP_CNT; loop_cnt++) {
@@ -239,14 +239,14 @@ static void perf_test_oldmalloc(void)
 static void on_produce(void* test_ctx, void* ptr, size_t sz) {
 	struct test_context* tctx = (struct test_context*) test_ctx;
 	small_chunk_t* sp = (small_chunk_t*) ptr;
-	cdsl_nrbtreeNodeInit(&sp->node, (trkey_t) ptr);
-	cdsl_nrbtreeInsert(&tctx->root, &sp->node, FALSE);
+	cdsl_rbtreeNodeInit(&sp->node, (trkey_t) ptr);
+	cdsl_rbtreeInsert(&tctx->root, &sp->node, FALSE);
 	sp->size = sz;
 }
 
 static void* on_consume(void* test_ctx, size_t* sz) {
 	struct test_context* tctx = (struct test_context*) test_ctx;
-	small_chunk_t* sp = (small_chunk_t*) cdsl_nrbtreeDeleteMin(&tctx->root);
+	small_chunk_t* sp = (small_chunk_t*) cdsl_rbtreeDeleteMin(&tctx->root);
 	if(!sp) {
 		*sz = 0;
 		return NULL;
