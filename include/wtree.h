@@ -19,7 +19,7 @@
 
 #define DECLARE_ONALLOCATE(fn)                          void* fn(size_t total_sz, size_t* rsz, void* ext_ctx)
 #define DECLARE_ONFREE(fn)                              int fn(void* addr, size_t sz, wtreeNode_t* wtnode, void* ext_ctx)
-#define DECLARE_ONREMOVED(fn)                           void fn(wtreeNode_t* node, void* ext_ctx)
+#define DECLARE_ONREMOVED(fn)                           void fn(wtreeNode_t* node, void* ext_ctx, BOOL merged)
 #define DECLARE_ONADDED(fn)                             void fn(wtreeNode_t* node, void* ext_ctx)
 
 
@@ -37,8 +37,9 @@ typedef BOOL (*wt_callback_t) (wtreeNode_t* node,void* arg);
 typedef struct {
 	void* (*onallocate) (size_t total_sz, size_t* rsz, void* ext_ctx);
 	int (*onfree)(void* addr, size_t size,wtreeNode_t* node, void* ext_ctx);
-	void (*onremoved)(wtreeNode_t* node, void* ext_ctx);
+	void (*onremoved)(wtreeNode_t* node, void* ext_ctx, BOOL merged);
 	void (*onadded)(wtreeNode_t* node, void* ext_ctx);
+	void (*onmerged)(wtreeNode_t* merger, wtreeNode_t* mergee);
 } wt_adapter;
 
 struct wtree_node {

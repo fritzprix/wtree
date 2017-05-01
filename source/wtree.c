@@ -114,7 +114,7 @@ void wtree_cleanup(wtreeRoot_t* root) {
 	while((clrn = (clr_node_t*)cdsl_slistRemoveHead(&clr_list))) {
 		clrn = container_of(clrn, clr_node_t, clr_lhead);
 		if(root->adapter->onremoved) {
-			root->adapter->onremoved(&clrn->node, root->ext_ctx);
+			root->adapter->onremoved(&clrn->node, root->ext_ctx, FALSE);
 		}
 		if(root->adapter->onfree) {
 			root->adapter->onfree(clrn->node.top - clrn->node.base_size,  clrn->node.base_size, &clrn->node, root->ext_ctx);
@@ -251,7 +251,7 @@ static wtreeNode_t* insert_rc(wtreeRoot_t* root, wtreeNode_t* parent, wtreeNode_
 			item->size += parent->size;
 			item->left = parent->left;
 			item->right = parent->right;
-			if(root->adapter->onremoved) root->adapter->onremoved(parent, root->ext_ctx);
+			if(root->adapter->onremoved) root->adapter->onremoved(parent, root->ext_ctx, TRUE);
 			if(root->adapter->onadded) root->adapter->onadded(item, root->ext_ctx);
 			parent = item;
 		} else {
@@ -345,7 +345,7 @@ static wtreeNode_t* purge_rc(wtreeRoot_t* root, wtreeNode_t* node) {
 			node->left = purge_rc(root, node->left);
 		} else if(!node->left && !node->right) {
 			if(root->adapter->onfree) {
-				if(root->adapter->onremoved) root->adapter->onremoved(node, root->ext_ctx);
+				if(root->adapter->onremoved) root->adapter->onremoved(node, root->ext_ctx, FALSE);
 				root->adapter->onfree(node->top - node->base_size, node->base_size,node, root->ext_ctx);
 				return NULL;
 			}
@@ -453,7 +453,7 @@ static wtreeNode_t* resolve(wtreeRoot_t* root, wtreeNode_t* parent, BOOL compact
 			return NULL;
 		}else if(parent->size == parent->base_size) {
 			if(root->adapter->onfree && compact) {
-				if(root->adapter->onremoved)  root->adapter->onremoved(parent,root->ext_ctx);
+				if(root->adapter->onremoved)  root->adapter->onremoved(parent,root->ext_ctx, FALSE);
 				root->adapter->onfree(parent->top - parent->base_size, parent->base_size, parent, root->ext_ctx);
 				return NULL;
 			}
@@ -488,7 +488,7 @@ static wtreeNode_t* merge_next(wtreeRoot_t* root, wtreeNode_t* merger) {
 	node->size = merger->size;
 	node->left = merger->left;
 	node->right = merger->right;
-	if(root->adapter->onremoved) root->adapter->onremoved(merger, root->ext_ctx);
+	if(root->adapter->onremoved) root->adapter->onremoved(merger, root->ext_ctx, TRUE);
 	if(root->adapter->onadded) root->adapter->onadded(node, root->ext_ctx);
 	return node;
 }
@@ -513,7 +513,7 @@ static wtreeNode_t* merge_from_leftend(wtreeRoot_t* root, wtreeNode_t* left, wtr
 	if(!left) return NULL;
 	left->left = merge_from_leftend(root,left->left, merger);
 	if(left->left) return left;
-	while((left->top - left->size) == merger->top) {
+	while(left && ((left->top - left->size) == merger->top)) {
 		if(left->base_size) {
 			merger->base_size += left->base_size;
 		}
@@ -522,10 +522,9 @@ static wtreeNode_t* merge_from_leftend(wtreeRoot_t* root, wtreeNode_t* left, wtr
 		}
 		merger->size += left->size;
 		merger->top = left->top;
-		if(root->adapter->onremoved) root->adapter->onremoved(left, root->ext_ctx);
-		if(!left->right)
-			return NULL;
+		if(root->adapter->onremoved) root->adapter->onremoved(left, root->ext_ctx, TRUE);
 		left = left->right;
+		if(!left) return NULL;
 	}
 	return left;
 }
@@ -541,7 +540,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 	if(!right) return NULL;
 	right->right = merge_from_rightend(root,right->right, merger);
 	if(right->right) return right;
-	while((merger->top - merger->size) == right->top) {
+	while(right && ((merger->top - merger->size) == right->top)) {
 		if(merger->base_size){
 			merger->base_size += right->base_size;
 		}
@@ -549,9 +548,7 @@ static wtreeNode_t* merge_from_rightend(wtreeRoot_t* root, wtreeNode_t* right,wt
 			return right;
 		}
 		merger->size += right->size;
-		if(root->adapter->onremoved) root->adapter->onremoved(right, root->ext_ctx);
-		if(!right->left)
-			return NULL;
+		if(root->adapter->onremoved) root->adapter->onremoved(right, root->ext_ctx, TRUE);
 		right = right->left;
 	}
 	return right;
@@ -570,13 +567,13 @@ static void print_rc(wtreeNode_t* parent, int depth) {
 		return;
 	print_rc(parent->right, depth + 1);
 	print_tab(depth);
-	printf("Node@%lx (bottom : %lx / base :%lx) {size : %u / base_size : %u / top : %lx} (%d)\n",
+	PRINT("Node@%lx (bottom : %lx / base :%lx) {size : %u / base_size : %u / top : %lx} (%d)\n",
 			(uint64_t) parent, (uint64_t)parent->top - parent->size, (uint64_t)parent->top - parent->base_size, parent->size, parent->base_size, (uint64_t) parent->top, depth);
 	print_rc(parent->left, depth + 1);
 }
 
 static void print_tab(int times) {
 	while (times--)
-		printf("\t");
+		PRINT("\t");
 }
 

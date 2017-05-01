@@ -110,7 +110,8 @@ void quantum_root_init(quantumRoot_t* root, wt_map_func_t mapper, wt_unmap_func_
 		return;
 	root->adapter.onfree = unmapper;
 	root->adapter.onallocate = mapper;
-	root->adapter.onremoved = root->adapter.onadded = NULL;
+	root->adapter.onremoved = NULL;
+	root->adapter.onadded = NULL;
 	cdsl_rbtreeRootInit(&root->addr_rbroot);
 	cdsl_rbtreeRootInit(&root->quantum_tree);
 	wtree_rootInit(&root->quantum_pool,NULL,&root->adapter,0);
