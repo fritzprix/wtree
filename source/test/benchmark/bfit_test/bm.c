@@ -114,7 +114,7 @@ static void* malloc_test(void* arg)
 		p = malloc(sizeof(large_person_t));
 		p->size = cnt;
 		cdsl_rbtreeNodeInit(&p->node,cnt);
-		cdsl_rbtreeInsert(&root, &p->node);
+		cdsl_rbtreeInsert(&root, &p->node, FALSE);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -142,7 +142,7 @@ static void* malloc_test(void* arg)
 			p = malloc(sizeof(large_person_t));
 			p->size = cnt;
 			cdsl_rbtreeNodeInit(&p->node,cnt);
-			cdsl_rbtreeInsert(&root, &p->node);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
@@ -167,7 +167,7 @@ static void* malloc_test(void* arg)
 			t_sz = (size_t)((rand_r(&seed) % MAX_REQ_SIZE) + sizeof(rbtreeNode_t)) & ~3;
 			p = malloc(t_sz);
 			cdsl_rbtreeNodeInit(&p->node,cnt);
-			cdsl_rbtreeInsert(&root, &p->node);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
@@ -241,7 +241,7 @@ static void* test_bfit(void* arg) {
 		p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
 		p->size = cnt;
 		cdsl_rbtreeNodeInit(&p->node,cnt);
-		cdsl_rbtreeInsert(&root, &p->node);
+		cdsl_rbtreeInsert(&root, &p->node, FALSE);
 	}
 	clock_gettime(CLOCK_REALTIME,&endts);
 	dt = ((((endts.tv_nsec - startts.tv_nsec)) + ((endts.tv_sec - startts.tv_sec) * 1E+9)) / 1E+9);
@@ -269,7 +269,7 @@ static void* test_bfit(void* arg) {
 			p = bfit_reclaim_chunk(bfroot, sizeof(large_person_t));
 			p->size = cnt;
 			cdsl_rbtreeNodeInit(&p->node,cnt);
-			cdsl_rbtreeInsert(&root, &p->node);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
@@ -296,7 +296,7 @@ static void* test_bfit(void* arg) {
 				printf("wtf!\n");
 			p = bfit_reclaim_chunk(bfroot, rn);
 			cdsl_rbtreeNodeInit(&p->node,cnt);
-			cdsl_rbtreeInsert(&root, &p->node);
+			cdsl_rbtreeInsert(&root, &p->node, FALSE);
 		}
 		for(cnt = 0;cnt < TEST_CNT;cnt++){
 			p = (large_person_t*) cdsl_rbtreeDelete(&root, cnt);
@@ -337,7 +337,7 @@ static void* test_bfit(void* arg) {
 				exit(-1);
 			}
 			cdsl_rbtreeNodeInit(&sp->node, (trkey_t) sp);
-			cdsl_rbtreeInsert(&root, &sp->node);
+			cdsl_rbtreeInsert(&root, &sp->node, FALSE);
 		}
 		while ((sp = (small_chunk_t*) cdsl_rbtreeDeleteMax(&root))) {
 			sp = container_of(sp, small_chunk_t, node);

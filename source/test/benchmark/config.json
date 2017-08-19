@@ -2,14 +2,13 @@
 	"BM_TARGET" : {
 		"type":"enum",
 		"enum": [
-			"wt_test",
 			"quantum_test",
 			"segment_test",
 			"bfit_test",
 			"bin_test",
 			"malloc_test"
 		],
-		"default": 1
+		"default": 2
 	},
 	"BM_SUB_CONFIG" : {
 		"type":"config",

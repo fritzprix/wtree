@@ -47,7 +47,7 @@ int perform_benchmark(void) {
 		}
 		for (i = 0; i < TH_CNT; i++) {
 			pthread_join(pids[i], NULL);
-			printf("all finished  %d @ %d\n",i,j);
+			__dev_log("all finished  %d @ %d\n",i,j);
 		}
 	}
 	return 0;
@@ -85,18 +85,17 @@ static void* segment_test(void* arg) {
 		segnode = (struct segment_node*) segment;
 		cdsl_rbtreeNodeInit(&segnode->rbnode, cnt);
 		segnode->sz = sz;
-		cdsl_rbtreeInsert(&rbroot, &segnode->rbnode);
+		cdsl_rbtreeInsert(&rbroot, &segnode->rbnode, FALSE);
 	}
-	printf("map finished\n");
+	__dev_log("map finished\n");
 
 
 	while((segnode = (struct segment_node*) cdsl_rbtreeDeleteMax(&rbroot))) {
 		segnode = container_of(segnode, struct segment_node, rbnode);
 		segment_unmap(&segroot,key_large, segnode, segnode->sz);
 	}
-//	segment_print_cache(&segroot, key_large);
 	segment_cleanup(&segroot);
-	printf("finished test \n");
+	__dev_log("finished test \n");
 	return NULL;
 }
 
@@ -112,8 +111,8 @@ static DECLARE_ONALLOCATE(mapper) {
 }
 
 static DECLARE_ONFREE(unmapper) {
-	printf("unmapped? (%lx, %lu)\n", (size_t) addr, (size_t) sz);
+	__dev_log("unmapped? (%lx, %lu)\n", (size_t) addr, (size_t) sz);
 	munmap(addr, sz);
-	printf("unmapped!! (%lx, %lu)\n", (size_t) addr, (size_t) sz);
+	__dev_log("unmapped!! (%lx, %lu)\n", (size_t) addr, (size_t) sz);
 	return 0;
 }
