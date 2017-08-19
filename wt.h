@@ -25,6 +25,10 @@
 #define EXIT(e)              exit(e)
 #endif
 
+#ifndef BOOL
+#define BOOL                 uint8_t
+#endif
+
 #define unlikely(cond)       __builtin_expect((cond), 0)
 #define likely(cond)         __builtin_expect((cond), 1)
 

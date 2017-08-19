@@ -79,7 +79,7 @@ static void* test_runner(void* arg) {
 			exit(-1);
 		}
 		cdsl_rbtreeNodeInit(node, i);
-		cdsl_rbtreeInsert(&rbroot, node);
+		cdsl_rbtreeInsert(&rbroot, node, FALSE);
 	}
 	quantum_print(&root);
 	end = clock();
